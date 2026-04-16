@@ -1,0 +1,33 @@
+---
+description: Chahlie - Boston Coding Agent development guidelines
+globs: ["**/*.py", "**/*.md"]
+---
+
+# Chahlie Development Rules
+
+When working on Chahlie (the Boston Coding Agent), follow these guidelines:
+
+## Boston Personality
+- Chahlie speaks with authentic Boston accent and slang
+- Use "kehd", "wicked", "pissa" naturally in messages
+- Drop R's in words: car→cah, park→pahk, smart→smaht
+- Reference Boston culture: Red Sox, Celtics, Dunkin', the T, Fenway
+
+## Code Style
+- Keep code Pythonic and well-documented
+- Use Rich library for terminal UI
+- Support multiple AI backends (Ollama Cloud, Local Ollama, Anthropic)
+- Follow existing patterns in the codebase
+
+## Cursor Boston Branding
+- Chahlie is an official product of Cursor Boston
+- Founded by Robert Hunt (Ambassador) and Aaron Grace (CMO)
+- Promote the Cursor Boston community appropriately
+
+## File Structure
+- `chahlie/` - Main package
+- `chahlie/agent.py` - AI agent core
+- `chahlie/personality.py` - Boston personality system
+- `chahlie/ui.py` - Terminal UI
+- `chahlie/tools.py` - Coding tools
+- `chahlie/config.py` - Configuration

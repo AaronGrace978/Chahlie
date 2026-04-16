@@ -78,6 +78,8 @@ python -m chahlie --about
 | `/clear` | Clear conversation history |
 | `/fact` | Get a random Boston fact |
 | `/about` | About Chahlie |
+| `/providers` | View available AI providers |
+| `/cursorboston` | Learn about Cursor Boston |
 | `/exit` | Exit Chahlie |
 
 ## Example Session
@@ -133,11 +135,31 @@ Chahlie can help you with:
 Create a `.env` file in the project root:
 
 ```bash
-# Get your API key from https://ollama.com/settings/keys
-OLLAMA_API_KEY=your-ollama-cloud-api-key-here
+cp .env.example .env
+```
 
-# Choose your model (optional, defaults to qwen3-coder-next)
-OLLAMA_MODEL=qwen3-coder-next
+### AI Providers
+
+Chahlie supports multiple AI backends:
+
+#### 1. Ollama Cloud (Recommended)
+```bash
+CHAHLIE_BACKEND=ollama-cloud
+OLLAMA_API_KEY=your-key-here  # Get from https://ollama.com/settings/keys
+OLLAMA_MODEL=glm-5.1
+```
+
+#### 2. Local Ollama
+```bash
+CHAHLIE_BACKEND=ollama-local
+OLLAMA_HOST=http://localhost:11434
+OLLAMA_MODEL=qwen3:8b
+```
+
+#### 3. Anthropic Claude
+```bash
+CHAHLIE_BACKEND=anthropic
+ANTHROPIC_API_KEY=your-key-here
 ```
 
 ### Available Ollama Cloud Models
@@ -171,7 +193,23 @@ Chahlie speaks with authentic Boston flair:
 
 ## Contributing
 
-Contributions are welcome! This is a Cursor Boston community project.
+Contributions are welcome! This is a **Cursor Boston** community project.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
+- Adding Boston personality and slang
+- Supporting new AI providers
+- Improving the UI
+- Boston flavor guidelines
+
+```bash
+# Quick start for contributors
+git clone https://github.com/AaronGrace978/Chahlie.git
+cd Chahlie
+pip install -r requirements.txt
+cp .env.example .env
+# Add your OLLAMA_API_KEY to .env
+python run.py
+```
 
 ## License
 

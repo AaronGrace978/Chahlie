@@ -110,6 +110,9 @@ def run_interactive():
                 elif command == "/cursorboston" or command == "/cb":
                     ui.print_cursor_boston()
                     continue
+                elif command == "/providers":
+                    ui.print_providers()
+                    continue
                 elif command == "/model":
                     if BACKEND == "ollama-cloud":
                         ui.console.print(f"[cyan]Model:[/cyan] {OLLAMA_MODEL} (Ollama Cloud)\n")

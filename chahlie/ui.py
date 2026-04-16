@@ -29,37 +29,46 @@ from .personality import get_greeting, get_boston_fact
 console = Console(force_terminal=True)
 
 
-# ASCII Art Banner (using basic ASCII chars for Windows compatibility)
+# ASCII Art Banner with Boston Skyline
 BANNER = r"""
-    ____ _   _    _    _   _ _     ___ _____ 
-   / ___| | | |  / \  | | | | |   |_ _| ____|
-  | |   | |_| | / _ \ | |_| | |    | ||  _|  
-  | |___|  _  |/ ___ \|  _  | |___ | || |___ 
-   \____|_| |_/_/   \_\_| |_|_____|___|_____|
-"""
+[green]
+     ██████╗██╗  ██╗ █████╗ ██╗  ██╗██╗     ██╗███████╗
+    ██╔════╝██║  ██║██╔══██╗██║  ██║██║     ██║██╔════╝
+    ██║     ███████║███████║███████║██║     ██║█████╗  
+    ██║     ██╔══██║██╔══██║██╔══██║██║     ██║██╔══╝  
+    ╚██████╗██║  ██║██║  ██║██║  ██║███████╗██║███████╗
+     ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝╚══════╝
+[/green]"""
+
+# Boston Skyline - Hancock, Prudential, Zakim Bridge
+BOSTON_SKYLINE = r"""
+[dim cyan]                          ___
+                         |   |  ╱╲                    ╱╲
+              ┌──┐       |   | ╱  ╲    ┌──┐         ╱  ╲
+    ┌──┐      │▓▓│  ┌──┐ |   |╱    ╲   │▓▓│  ┌──┐  ╱    ╲
+    │▓▓│ ┌──┐ │▓▓│  │▓▓│ |___|      ╲  │▓▓│  │▓▓│ ╱      ╲
+────┴──┴─┴──┴─┴──┴──┴──┴─────────────╲─┴──┴──┴──┴╱────────────
+    ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀ BOSTON ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀[/dim cyan]"""
 
 CURSOR_BOSTON_LOGO = r"""
+[bold cyan]
    ██████╗██╗   ██╗██████╗ ███████╗ ██████╗ ██████╗ 
   ██╔════╝██║   ██║██╔══██╗██╔════╝██╔═══██╗██╔══██╗
   ██║     ██║   ██║██████╔╝███████╗██║   ██║██████╔╝
   ██║     ██║   ██║██╔══██╗╚════██║██║   ██║██╔══██╗
   ╚██████╗╚██████╔╝██║  ██║███████║╚██████╔╝██║  ██║
    ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝
-                    B O S T O N                      
-"""
-
-SKYLINE = r"""
-                                    [##]                    
-                      |==|          [##]    |==|           
-            |==|      |  |   |==|   [##]    |  |   |==|    
-    |==|    |  |  |==||  |   |  |   [##]|==||  |   |  |    
-----+--+----+--+--+--++--+---+--+---+##++--++--+---+--+----
-"""
+               B  O  S  T  O  N                      
+[/bold cyan]"""
 
 
 def print_banner():
-    """Print the Chahlie banner"""
-    console.print(Text(BANNER, style="bold green"))
+    """Print the Chahlie banner with Boston skyline"""
+    # Print the skyline first
+    console.print(BOSTON_SKYLINE)
+    
+    # Print main Chahlie logo
+    console.print(BANNER)
     
     # Tagline and version
     info = Table.grid(padding=0)
@@ -67,7 +76,7 @@ def print_banner():
     info.add_row(Text("The Boston Coding Agent", style="bold white"))
     info.add_row(Text(f"v{APP_VERSION} \"{APP_CODENAME}\"", style="dim"))
     info.add_row(Text(""))
-    info.add_row(Text(f"Official Product of {CREDITS['organization']}", style="cyan"))
+    info.add_row(Text(f"Official Product of {CREDITS['organization']}", style="bold cyan"))
     info.add_row(Text(f"{CREDITS['founder_title']}: {CREDITS['founder']} | CMO: {CREDITS['cmo']}", style="dim cyan"))
     
     console.print(Align.center(info))
@@ -108,10 +117,14 @@ def print_help():
     help_table.add_row("/fact", "Get a random Boston fact")
     help_table.add_row("/about", "About Chahlie")
     help_table.add_row("/model", "Show current model")
+    help_table.add_row("/providers", "View available AI providers")
     help_table.add_row("/cursorboston", "Learn about Cursor Boston!")
     
     console.print(help_table)
-    console.print("[dim]Chahlie is an official product of Cursor Boston[/dim]")
+    console.print()
+    console.print("[dim cyan]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/dim cyan]")
+    console.print("[bold]Chahlie[/bold] is an official product of [bold cyan]Cursor Boston[/bold cyan]")
+    console.print("[dim]Boston's home for AI-powered development[/dim]")
     console.print()
 
 
@@ -167,9 +180,57 @@ def print_fact():
     console.print()
 
 
+def print_providers():
+    """Print available AI providers"""
+    providers = """
+[bold cyan]Available AI Providers[/bold cyan]
+
+Chahlie supports multiple AI backends. Configure in your [yellow].env[/yellow] file:
+
+[bold green]1. Ollama Cloud (Recommended)[/bold green]
+   Best for: Cloud-hosted models, no GPU required
+   [dim]CHAHLIE_BACKEND=ollama-cloud
+   OLLAMA_API_KEY=your-key-here
+   OLLAMA_MODEL=glm-5.1[/dim]
+   
+   Top Models:
+   • glm-5.1 - SOTA for agentic engineering
+   • qwen3.5 - Multimodal powerhouse
+   • devstral-small-2 - Multi-file editing expert
+   • gemma4 - Frontier performance
+   
+   Get your API key: [link]https://ollama.com/settings/keys[/link]
+
+[bold green]2. Local Ollama[/bold green]
+   Best for: Privacy, offline use, local GPU
+   [dim]CHAHLIE_BACKEND=ollama-local
+   OLLAMA_HOST=http://localhost:11434
+   OLLAMA_MODEL=qwen3:8b[/dim]
+   
+   Install: [link]https://ollama.com/download[/link]
+
+[bold green]3. Anthropic Claude[/bold green]
+   Best for: Claude fans, enterprise use
+   [dim]CHAHLIE_BACKEND=anthropic
+   ANTHROPIC_API_KEY=your-key-here[/dim]
+   
+   Get your API key: [link]https://console.anthropic.com[/link]
+
+[dim]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/dim]
+After changing .env, restart Chahlie to use the new provider.
+"""
+    console.print(Panel(
+        providers,
+        title="[bold cyan]AI Providers[/bold cyan]",
+        border_style="cyan",
+        box=box.DOUBLE
+    ))
+    console.print()
+
+
 def print_cursor_boston():
     """Print Cursor Boston info"""
-    console.print(Text(CURSOR_BOSTON_LOGO, style="bold cyan"))
+    console.print(CURSOR_BOSTON_LOGO)
     
     info = f"""
 [bold cyan]{CURSOR_BOSTON['tagline']}[/bold cyan]
