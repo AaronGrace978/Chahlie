@@ -364,6 +364,8 @@ def get_tool_icon(tool_name: str) -> str:
         "search_content": "[?]",
         "run_command": "[>]",
         "create_directory": "[+]",
+        "open_browser": "[B]",
+        "web_search": "[G]",
     }
     return icons.get(tool_name, "[T]")
 

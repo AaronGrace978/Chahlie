@@ -6,6 +6,8 @@ The hands that do the work
 import os
 import subprocess
 import glob as glob_module
+import webbrowser
+import urllib.parse
 from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass
@@ -137,6 +139,34 @@ TOOL_DEFINITIONS = [
                 }
             },
             "required": ["path"]
+        }
+    },
+    {
+        "name": "open_browser",
+        "description": "Open a URL in the user's default web browser.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "The URL to open (e.g., 'https://google.com')"
+                }
+            },
+            "required": ["url"]
+        }
+    },
+    {
+        "name": "web_search",
+        "description": "Search the web using Google. Opens the search results in the browser.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "The search query"
+                }
+            },
+            "required": ["query"]
         }
     },
 ]
@@ -299,6 +329,37 @@ def create_directory(path: str) -> ToolResult:
         return ToolResult(success=False, output="", error=str(e))
 
 
+def open_browser(url: str) -> ToolResult:
+    """Open a URL in the default browser"""
+    try:
+        # Add https:// if no protocol specified
+        if not url.startswith(('http://', 'https://')):
+            url = 'https://' + url
+        
+        webbrowser.open(url)
+        return ToolResult(
+            success=True,
+            output=f"Opened {url} in your browser, kehd!"
+        )
+    except Exception as e:
+        return ToolResult(success=False, output="", error=str(e))
+
+
+def web_search(query: str) -> ToolResult:
+    """Search the web using Google"""
+    try:
+        encoded_query = urllib.parse.quote(query)
+        search_url = f"https://www.google.com/search?q={encoded_query}"
+        
+        webbrowser.open(search_url)
+        return ToolResult(
+            success=True,
+            output=f"Searched Google for '{query}' - check your browser!"
+        )
+    except Exception as e:
+        return ToolResult(success=False, output="", error=str(e))
+
+
 def execute_tool(name: str, arguments: dict) -> ToolResult:
     """Execute a tool by name with given arguments"""
     tools = {
@@ -316,6 +377,8 @@ def execute_tool(name: str, arguments: dict) -> ToolResult:
             args.get("working_directory")
         ),
         "create_directory": lambda args: create_directory(args.get("path", "")),
+        "open_browser": lambda args: open_browser(args.get("url", "")),
+        "web_search": lambda args: web_search(args.get("query", "")),
     }
     
     if name not in tools:
