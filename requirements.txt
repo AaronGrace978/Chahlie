@@ -1,6 +1,7 @@
 # Chahlie - The Boston Coding Agent
 # Official Product of Cursor Boston
 
+ollama>=0.4.0
 anthropic>=0.25.0
 rich>=13.7.0
 textual>=0.50.0

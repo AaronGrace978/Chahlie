@@ -58,7 +58,7 @@ def print_banner():
     info.add_row(Text(f"v{APP_VERSION} \"{APP_CODENAME}\"", style="dim"))
     info.add_row(Text(""))
     info.add_row(Text(f"Official Product of {CREDITS['organization']}", style="cyan"))
-    info.add_row(Text(f"Founded by {CREDITS['founder']} | CMO: {CREDITS['cmo']}", style="dim cyan"))
+    info.add_row(Text(f"{CREDITS['founder_title']}: {CREDITS['founder']} | CMO: {CREDITS['cmo']}", style="dim cyan"))
     
     console.print(Align.center(info))
     console.print()
@@ -122,7 +122,7 @@ Built for developers who appreciate good code and good vibes.
 
 [cyan]Credits:[/cyan]
 * [bold]{CREDITS['organization']}[/bold] - Official Product
-* [bold]{CREDITS['founder']}[/bold] - Founder
+* [bold]{CREDITS['founder']}[/bold] - {CREDITS['founder_title']}
 * [bold]{CREDITS['cmo']}[/bold] - Chief Media Officer
 
 [dim]Built with love in Boston[/dim]

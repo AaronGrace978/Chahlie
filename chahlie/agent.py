@@ -4,7 +4,7 @@ The brain that makes it all work - supports Ollama Cloud, local Ollama, and Anth
 """
 
 import json
-import requests
+import os
 from typing import Generator, Optional
 from dataclasses import dataclass
 
@@ -41,12 +41,15 @@ class ChahlieAgent:
             self.client = Anthropic(api_key=ANTHROPIC_API_KEY)
             self.model = ANTHROPIC_MODEL
         elif self.backend == "ollama-cloud":
-            self.ollama_host = OLLAMA_CLOUD_HOST
-            self.ollama_api_key = OLLAMA_CLOUD_API_KEY
+            from ollama import Client
+            self.client = Client(
+                host=OLLAMA_CLOUD_HOST,
+                headers={'Authorization': f'Bearer {OLLAMA_CLOUD_API_KEY}'}
+            )
             self.model = OLLAMA_MODEL
         else:  # ollama-local
-            self.ollama_host = OLLAMA_LOCAL_HOST
-            self.ollama_api_key = None
+            from ollama import Client
+            self.client = Client(host=OLLAMA_LOCAL_HOST)
             self.model = OLLAMA_MODEL
     
     def reset(self):
@@ -67,26 +70,30 @@ class ChahlieAgent:
                 }
             })
         
-        payload = {
-            "model": self.model,
-            "messages": messages,
-            "tools": tools,
-            "stream": False
-        }
-        
-        # Build headers - include API key for Ollama Cloud
-        headers = {"Content-Type": "application/json"}
-        if self.ollama_api_key:
-            headers["Authorization"] = f"Bearer {self.ollama_api_key}"
-        
-        response = requests.post(
-            f"{self.ollama_host}/api/chat",
-            json=payload,
-            headers=headers,
-            timeout=120
+        # Use official Ollama Python library
+        response = self.client.chat(
+            model=self.model,
+            messages=messages,
+            tools=tools,
+            stream=False
         )
-        response.raise_for_status()
-        return response.json()
+        
+        # Convert response to dict format
+        return {
+            "message": {
+                "role": response.message.role,
+                "content": response.message.content or "",
+                "tool_calls": [
+                    {
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments
+                        }
+                    }
+                    for tc in (response.message.tool_calls or [])
+                ]
+            }
+        }
     
     def _process_ollama(self, user_message: str) -> Generator[AgentEvent, None, None]:
         """Process with Ollama backend"""

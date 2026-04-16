@@ -16,7 +16,7 @@
 
 ### 🏟️ Official Product of Cursor Boston
 
-**Founded by Robert Hunt**
+**Cursor Boston Ambassador: Robert Hunt**
 
 **CMO: Aaron Grace**
 
@@ -144,11 +144,12 @@ OLLAMA_MODEL=qwen3-coder-next
 
 | Model | Description | Best For |
 |-------|-------------|----------|
-| `qwen3-coder-next` | Coding-focused, optimized for agentic workflows | Default choice |
-| `qwen3.5` | Multimodal, exceptional utility (6.3M pulls) | General coding |
+| `glm-5.1` | **SOTA for agentic engineering** - SWE-Bench Pro leader | Default choice |
+| `qwen3.5` | Multimodal powerhouse (6.3M pulls) - vision + tools | General coding |
 | `devstral-small-2` | 24B model, excels at multi-file editing | Large codebases |
-| `glm-5.1` | SOTA for agentic engineering | Complex tasks |
-| `gemma4` | Frontier performance from Google | Reasoning |
+| `gemma4` | Frontier performance from Google - vision + tools | Reasoning |
+| `deepseek-v3.2` | Efficient reasoning + agent performance | Complex tasks |
+| `minimax-m2.7` | Latest for coding & agentic workflows | Productivity |
 
 See all models at [ollama.com/search?c=cloud](https://ollama.com/search?c=cloud)
 
@@ -184,7 +185,7 @@ MIT License - Use it, modify it, make it wicked bettah.
 
 **[Cursor Boston](https://cursorboston.com)** - The home for Boston developers using Cursor
 
-*Founded by Robert Hunt • CMO: Aaron Grace*
+*Cursor Boston Ambassador: Robert Hunt • CMO: Aaron Grace*
 
 ---
 
