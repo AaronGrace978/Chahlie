@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chahlie"
+version = "1.0.0"
+description = "The Boston Coding Agent - An agentic AI assistant with Boston personality"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Cursor Boston", email = "hello@cursorboston.com"}
+]
+keywords = ["ai", "coding", "assistant", "boston", "claude", "anthropic", "agent", "cursor"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "anthropic>=0.25.0",
+    "rich>=13.7.0",
+    "textual>=0.50.0",
+    "click>=8.1.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+chahlie = "chahlie.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/cursor-boston/chahlie"
+Documentation = "https://github.com/cursor-boston/chahlie#readme"
+Repository = "https://github.com/cursor-boston/chahlie"
+"Bug Tracker" = "https://github.com/cursor-boston/chahlie/issues"
+"Cursor Boston" = "https://cursorboston.com"
+
+[tool.setuptools.packages.find]
+where = ["."]
