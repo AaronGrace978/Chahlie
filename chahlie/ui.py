@@ -22,7 +22,7 @@ from rich.spinner import Spinner
 from rich.align import Align
 from rich import box
 
-from .config import THEME, APP_NAME, APP_VERSION, APP_CODENAME, CREDITS, CURSOR_BOSTON
+from .config import THEME, APP_NAME, APP_VERSION, APP_CODENAME, CREDITS, CURSOR_BOSTON, CURSOR
 from .personality import get_greeting, get_boston_fact
 
 
@@ -78,6 +78,8 @@ def print_banner():
     info.add_row(Text(""))
     info.add_row(Text(f"Official Product of {CREDITS['organization']}", style="bold cyan"))
     info.add_row(Text(f"{CREDITS['founder_title']}: {CREDITS['founder']} | CMO: {CREDITS['cmo']}", style="dim cyan"))
+    info.add_row(Text(""))
+    info.add_row(Text("Made with Cursor - cursor.com", style="dim magenta"))
     
     console.print(Align.center(info))
     console.print()
@@ -141,17 +143,26 @@ Chahlie is the official AI coding agent of [bold]Cursor Boston[/bold] -
 the community for Boston developers building with Cursor IDE.
 
 [cyan]What Can Chahlie Do?[/cyan]
-* Read, write, and search your codebase
-* Run shell commands and manage your project
-* Help with any coding task - wicked fast
-* Do it all with authentic Boston personality
+• Read, write, and search your codebase
+• Run shell commands and manage your project
+• Help with any coding task - wicked fast
+• Do it all with authentic Boston personality
 
 [cyan]Leadership:[/cyan]
-* [bold]{CREDITS['founder']}[/bold] - {CREDITS['founder_title']}
-* [bold]{CREDITS['cmo']}[/bold] - Chief Media Officer
+• [bold]{CREDITS['founder']}[/bold] - {CREDITS['founder_title']}
+• [bold]{CREDITS['cmo']}[/bold] - Chief Media Officer
 
-[cyan]Connect:[/cyan]
-* GitHub: {CURSOR_BOSTON['github']}
+[bold yellow]━━━━━━━━━━━━ CONNECT ━━━━━━━━━━━━[/bold yellow]
+
+[white]🌐 Cursor Boston:[/white]  [link={CURSOR_BOSTON['website']}]{CURSOR_BOSTON['website']}[/link]
+[white]🐦 X/Twitter:[/white]      [link={CURSOR_BOSTON['x_twitter']}]{CURSOR_BOSTON['x_twitter']}[/link]
+[white]💻 GitHub:[/white]         [link={CURSOR_BOSTON['github']}]{CURSOR_BOSTON['github']}[/link]
+
+[bold magenta]━━━━━━━━━━ MADE WITH CURSOR ━━━━━━━━━━[/bold magenta]
+
+[bold magenta]Cursor[/bold magenta] - {CURSOR['tagline']}
+[white]🌐 Website:[/white]   [link={CURSOR['website']}]{CURSOR['website']}[/link]
+[bold green]⬇️  Download:[/bold green]  [link={CURSOR['download']}]{CURSOR['download']}[/link]
 
 [bold green]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/bold green]
 [bold]Join the Cursor Boston community![/bold]
@@ -238,15 +249,23 @@ def print_cursor_boston():
 {CURSOR_BOSTON['description']}
 
 [yellow]Why Cursor Boston?[/yellow]
-* Connect with Boston's AI developer community
-* Learn tips & tricks for Cursor IDE
-* Build awesome projects together
-* Network with local tech talent
+• Connect with Boston's AI developer community
+• Learn tips & tricks for Cursor IDE
+• Build awesome projects together
+• Network with local tech talent
 
-[yellow]Get Involved:[/yellow]
-* Star us on GitHub: {CURSOR_BOSTON['github']}
-* Use Chahlie in your projects
-* Share your Cursor Boston creations
+[bold yellow]━━━━━━━━━━━━ CONNECT WITH US ━━━━━━━━━━━━[/bold yellow]
+
+[bold white]🌐 Website:[/bold white]     [link={CURSOR_BOSTON['website']}]{CURSOR_BOSTON['website']}[/link]
+[bold white]🐦 X/Twitter:[/bold white]   [link={CURSOR_BOSTON['x_twitter']}]{CURSOR_BOSTON['x_twitter']}[/link]
+[bold white]💻 GitHub:[/bold white]      [link={CURSOR_BOSTON['github']}]{CURSOR_BOSTON['github']}[/link]
+
+[bold cyan]━━━━━━━━━━━━━━ CURSOR IDE ━━━━━━━━━━━━━━━[/bold cyan]
+
+[bold white]Made with[/bold white] [bold magenta]Cursor[/bold magenta] - {CURSOR['tagline']}
+
+[bold green]⬇️  DOWNLOAD CURSOR:[/bold green]  [link={CURSOR['download']}]{CURSOR['download']}[/link]
+[bold white]🌐 Website:[/bold white]          [link={CURSOR['website']}]{CURSOR['website']}[/link]
 
 [bold green]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/bold green]
   Chahlie is proud to represent Cursor Boston!

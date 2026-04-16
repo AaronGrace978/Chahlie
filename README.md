@@ -9,6 +9,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Powered by Ollama](https://img.shields.io/badge/Powered%20by-Ollama%20Cloud-purple.svg)](https://ollama.com)
+[![Made with Cursor](https://img.shields.io/badge/Made%20with-Cursor-blue.svg)](https://cursor.com)
 
 *Version 1.0.0 "Green Monstah"*
 
@@ -16,9 +17,11 @@
 
 ### 🏟️ Official Product of Cursor Boston
 
-**Cursor Boston Ambassador: Robert Hunt**
+**Cursor Boston Ambassador: Robert Hunt** | **CMO: Aaron Grace**
 
-**CMO: Aaron Grace**
+[![Cursor Boston](https://img.shields.io/badge/Cursor%20Boston-Website-cyan.svg)](https://cursorboston.com)
+[![Follow on X](https://img.shields.io/badge/Follow-@CursorBoston-black.svg)](https://x.com/CursorBoston)
+[![Download Cursor](https://img.shields.io/badge/Download-Cursor%20IDE-blue.svg)](https://cursor.com/downloads)
 
 ---
 
@@ -221,9 +224,24 @@ MIT License - Use it, modify it, make it wicked bettah.
 
 ### 🏙️ Built with ❤️ in Boston
 
-**[Cursor Boston](https://cursorboston.com)** - The home for Boston developers using Cursor
+**[Cursor Boston](https://cursorboston.com)** - Boston's Home for AI-Powered Development
 
 *Cursor Boston Ambassador: Robert Hunt • CMO: Aaron Grace*
+
+---
+
+#### Connect With Us
+
+[![Cursor Boston Website](https://img.shields.io/badge/🌐_Website-cursorboston.com-cyan?style=for-the-badge)](https://cursorboston.com)
+[![Follow on X](https://img.shields.io/badge/🐦_Twitter-@CursorBoston-black?style=for-the-badge)](https://x.com/CursorBoston)
+[![GitHub](https://img.shields.io/badge/💻_GitHub-Chahlie-green?style=for-the-badge)](https://github.com/AaronGrace978/Chahlie)
+
+---
+
+#### Made with Cursor
+
+[![Download Cursor](https://img.shields.io/badge/⬇️_Download_Cursor-cursor.com-blue?style=for-the-badge)](https://cursor.com/downloads)
+[![Cursor Website](https://img.shields.io/badge/🌐_Cursor-The_AI_Code_Editor-purple?style=for-the-badge)](https://cursor.com)
 
 ---
 

@@ -52,12 +52,21 @@ APP_TAGLINE = "The Boston Coding Agent"
 APP_VERSION = "1.0.0"
 APP_CODENAME = "Green Monstah"
 
+# Cursor Info
+CURSOR = {
+    "name": "Cursor",
+    "website": "https://cursor.com",
+    "download": "https://cursor.com/downloads",
+    "tagline": "The AI Code Editor",
+}
+
 # Cursor Boston Info
 CURSOR_BOSTON = {
     "name": "Cursor Boston",
     "tagline": "Boston's Home for AI-Powered Development",
     "website": "https://cursorboston.com",
     "github": "https://github.com/AaronGrace978/Chahlie",
+    "x_twitter": "https://x.com/CursorBoston",
     "description": "The community for Boston developers building with Cursor IDE",
 }
 
