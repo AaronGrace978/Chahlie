@@ -7,7 +7,10 @@ import sys
 import click
 
 from .agent import ChahlieAgent, AgentEvent
-from .config import BACKEND, ANTHROPIC_API_KEY, OLLAMA_HOST, OLLAMA_MODEL
+from .config import (
+    BACKEND, ANTHROPIC_API_KEY, 
+    OLLAMA_CLOUD_HOST, OLLAMA_CLOUD_API_KEY, OLLAMA_LOCAL_HOST, OLLAMA_MODEL
+)
 from . import ui
 
 
@@ -19,23 +22,34 @@ def check_backend():
                 "Anthropic backend selected but no API key found!\n\n"
                 "Either set your Anthropic API key:\n"
                 "  ANTHROPIC_API_KEY=your-key-here\n\n"
-                "Or switch to Ollama (recommended for local use):\n"
-                "  CHAHLIE_BACKEND=ollama"
+                "Or switch to Ollama Cloud (recommended):\n"
+                "  CHAHLIE_BACKEND=ollama-cloud"
             )
             return False
-    else:
-        # Check if Ollama is running
+    elif BACKEND == "ollama-cloud":
+        if not OLLAMA_CLOUD_API_KEY:
+            ui.print_error(
+                "Ollama Cloud selected but no API key found!\n\n"
+                "Get your API key from:\n"
+                "  https://ollama.com/settings/keys\n\n"
+                "Then set it in your .env file:\n"
+                "  OLLAMA_API_KEY=your-key-here"
+            )
+            return False
+    else:  # ollama-local
         import requests
         try:
-            response = requests.get(f"{OLLAMA_HOST}/api/tags", timeout=5)
+            response = requests.get(f"{OLLAMA_LOCAL_HOST}/api/tags", timeout=5)
             response.raise_for_status()
         except:
             ui.print_error(
-                f"Can't connect to Ollama at {OLLAMA_HOST}\n\n"
+                f"Can't connect to Ollama at {OLLAMA_LOCAL_HOST}\n\n"
                 "Make sure Ollama is running:\n"
                 "  ollama serve\n\n"
                 "And pull a model:\n"
-                f"  ollama pull {OLLAMA_MODEL}"
+                f"  ollama pull {OLLAMA_MODEL}\n\n"
+                "Or switch to Ollama Cloud:\n"
+                "  CHAHLIE_BACKEND=ollama-cloud"
             )
             return False
     return True
@@ -52,8 +66,10 @@ def run_interactive():
     ui.print_banner()
     
     # Show which backend we're using
-    if BACKEND == "ollama":
-        ui.console.print(f"[dim]🦙 Using Ollama: {OLLAMA_MODEL}[/dim]\n")
+    if BACKEND == "ollama-cloud":
+        ui.console.print(f"[dim]☁️ Using Ollama Cloud: {OLLAMA_MODEL}[/dim]\n")
+    elif BACKEND == "ollama-local":
+        ui.console.print(f"[dim]🦙 Using Local Ollama: {OLLAMA_MODEL}[/dim]\n")
     else:
         ui.console.print(f"[dim]🤖 Using Anthropic Claude[/dim]\n")
     
@@ -92,8 +108,10 @@ def run_interactive():
                     ui.print_about()
                     continue
                 elif command == "/model":
-                    if BACKEND == "ollama":
-                        ui.console.print(f"[cyan]Model:[/cyan] {OLLAMA_MODEL} (Ollama)\n")
+                    if BACKEND == "ollama-cloud":
+                        ui.console.print(f"[cyan]Model:[/cyan] {OLLAMA_MODEL} (Ollama Cloud)\n")
+                    elif BACKEND == "ollama-local":
+                        ui.console.print(f"[cyan]Model:[/cyan] {OLLAMA_MODEL} (Local Ollama)\n")
                     else:
                         ui.console.print(f"[cyan]Model:[/cyan] Claude (Anthropic)\n")
                     continue
@@ -135,7 +153,7 @@ def run_interactive():
 @click.command()
 @click.option("--version", "-v", is_flag=True, help="Show version and exit")
 @click.option("--about", "-a", is_flag=True, help="Show about information")
-@click.option("--backend", "-b", type=click.Choice(["ollama", "anthropic"]), help="Backend to use")
+@click.option("--backend", "-b", type=click.Choice(["ollama-cloud", "ollama-local", "anthropic"]), help="Backend to use")
 @click.option("--model", "-m", help="Model to use (for Ollama)")
 def main(version: bool, about: bool, backend: str, model: str):
     """
