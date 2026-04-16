@@ -6,7 +6,7 @@ Thanks for your interest in contributing to Chahlie - the Boston Coding Agent! T
 
 Cursor Boston is Boston's home for AI-powered development. We're a community of developers building with Cursor IDE, sharing knowledge, and creating awesome tools together.
 
-- **Founded by**: Robert Hunt (Cursor Boston Ambassador)
+- **Founded by**: Roger Hunt (Cursor Boston Ambassador)
 - **CMO**: Aaron Grace
 - **GitHub**: [github.com/AaronGrace978/Chahlie](https://github.com/AaronGrace978/Chahlie)
 

@@ -73,7 +73,7 @@ CURSOR_BOSTON = {
 # Credits
 CREDITS = {
     "organization": "Cursor Boston",
-    "founder": "Robert Hunt",
+    "founder": "Roger Hunt",
     "founder_title": "Cursor Boston Ambassador",
     "cmo": "Aaron Grace",
 }

@@ -17,7 +17,7 @@
 
 ### 🏟️ Official Product of Cursor Boston
 
-**Cursor Boston Ambassador: Robert Hunt** | **CMO: Aaron Grace**
+**Cursor Boston Ambassador: Roger Hunt** | **CMO: Aaron Grace**
 
 [![Cursor Boston](https://img.shields.io/badge/Cursor%20Boston-Website-cyan.svg)](https://cursorboston.com)
 [![Follow on X](https://img.shields.io/badge/Follow-@CursorBoston-black.svg)](https://x.com/CursorBoston)
@@ -226,7 +226,7 @@ MIT License - Use it, modify it, make it wicked bettah.
 
 **[Cursor Boston](https://cursorboston.com)** - Boston's Home for AI-Powered Development
 
-*Cursor Boston Ambassador: Robert Hunt • CMO: Aaron Grace*
+*Cursor Boston Ambassador: Roger Hunt • CMO: Aaron Grace*
 
 ---
 
