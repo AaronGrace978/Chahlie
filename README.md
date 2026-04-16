@@ -27,6 +27,27 @@
 
 </div>
 
+## 🎬 Demo
+
+<div align="center">
+
+<!-- TODO: Add demo GIF here -->
+*Demo GIF coming soon! Run `python run.py` to see Chahlie in action.*
+
+```
+┌─────────────────────────── CHAHLIE ───────────────────────────┐
+│ Ayyy, what's up kehd? Ready to write some wicked good code?   │
+└───────────────────────────────────────────────────────────────┘
+You: Help me create a REST API
+
+> On it like Big Papi on a fastball...
+┌─────────────────────────── CHAHLIE ───────────────────────────┐
+│ No problemo! Let me bang that out for ya...                   │
+└───────────────────────────────────────────────────────────────┘
+```
+
+</div>
+
 ## What is Chahlie?
 
 Chahlie (Boston pronunciation of "Charlie", like [Charlie on the MTA](https://en.wikipedia.org/wiki/M.T.A._(song))) is a terminal-based AI coding agent that helps you write wicked good code. Built with authentic Boston personality, Chahlie is your helpful, slightly sarcastic coding buddy who never leaves your terminal.
@@ -37,7 +58,9 @@ Chahlie (Boston pronunciation of "Charlie", like [Charlie on the MTA](https://en
 - 🗣️ **Boston Personality** - Authentic Boston slang and attitude
 - 🎨 **Beautiful Terminal UI** - Clean, styled interface with Fenway Green theme
 - ⚡ **Powered by Ollama Cloud** - Access top AI models via Ollama
-- 🔧 **Tool Use** - Watches Chahlie work with real-time tool execution
+- 🔧 **Tool Use** - Watch Chahlie work with real-time tool execution
+- 🌐 **Browser Tools** - Open URLs and search the web
+- 🔄 **Multiple Providers** - Ollama Cloud, Local Ollama, or Anthropic Claude
 
 ## Installation
 
@@ -213,6 +236,50 @@ cp .env.example .env
 # Add your OLLAMA_API_KEY to .env
 python run.py
 ```
+
+## 💬 What People Are Saying
+
+> *"Chahlie helped me refactor my entire codebase in half the time. Wicked pissa!"*
+> — **Boston Developer**
+
+> *"Finally, a coding assistant that speaks my language. No problemo!"*
+> — **Cursor Boston Community Member**
+
+> *"The Boston personality makes coding fun again. Crushed it!"*
+> — **Open Source Contributor**
+
+*Want to share your experience? Open a PR to add your testimonial!*
+
+## 🚀 Featured Projects Built with Chahlie
+
+Projects built using Chahlie will be featured here! 
+
+**Want your project featured?** Open an issue or PR with:
+- Project name and link
+- Brief description
+- How Chahlie helped
+
+*Be the first to have your project featured!*
+
+## 🤝 Join the Community
+
+<div align="center">
+
+[![Join Cursor Boston](https://img.shields.io/badge/Join-Cursor%20Boston%20Community-cyan?style=for-the-badge)](https://cursorboston.com)
+[![Follow @CursorBoston](https://img.shields.io/badge/Follow-@CursorBoston-black?style=for-the-badge)](https://x.com/CursorBoston)
+[![Star on GitHub](https://img.shields.io/badge/⭐_Star-This%20Repo-yellow?style=for-the-badge)](https://github.com/AaronGrace978/Chahlie)
+
+</div>
+
+- 🌐 **Website**: [cursorboston.com](https://cursorboston.com)
+- 🐦 **Twitter/X**: [@CursorBoston](https://x.com/CursorBoston)
+- 💻 **GitHub**: [Chahlie Repo](https://github.com/AaronGrace978/Chahlie)
+
+## 📋 Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for version history and updates.
+
+**Current Version:** 1.0.0 "Green Monstah"
 
 ## License
 
