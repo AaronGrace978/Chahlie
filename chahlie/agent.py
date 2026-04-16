@@ -1,6 +1,6 @@
 """
 Chahlie's Agent Core
-The brain that makes it all work - supports Anthropic and Ollama backends
+The brain that makes it all work - supports Ollama Cloud, local Ollama, and Anthropic
 """
 
 import json
@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from .config import (
     BACKEND, 
     ANTHROPIC_API_KEY, ANTHROPIC_MODEL,
-    OLLAMA_HOST, OLLAMA_MODEL,
+    OLLAMA_CLOUD_HOST, OLLAMA_CLOUD_API_KEY, OLLAMA_LOCAL_HOST, OLLAMA_MODEL,
     MAX_TOKENS
 )
 from .personality import SYSTEM_PROMPT, get_working, get_success, get_error
@@ -29,7 +29,7 @@ class AgentEvent:
 class ChahlieAgent:
     """
     The Chahlie Agent - Boston's finest coding assistant
-    Supports both Anthropic and Ollama backends
+    Supports Ollama Cloud, local Ollama, and Anthropic backends
     """
     
     def __init__(self, backend: str = None):
@@ -40,8 +40,13 @@ class ChahlieAgent:
             from anthropic import Anthropic
             self.client = Anthropic(api_key=ANTHROPIC_API_KEY)
             self.model = ANTHROPIC_MODEL
-        else:
-            self.ollama_host = OLLAMA_HOST
+        elif self.backend == "ollama-cloud":
+            self.ollama_host = OLLAMA_CLOUD_HOST
+            self.ollama_api_key = OLLAMA_CLOUD_API_KEY
+            self.model = OLLAMA_MODEL
+        else:  # ollama-local
+            self.ollama_host = OLLAMA_LOCAL_HOST
+            self.ollama_api_key = None
             self.model = OLLAMA_MODEL
     
     def reset(self):
@@ -49,7 +54,7 @@ class ChahlieAgent:
         self.conversation_history = []
     
     def _call_ollama(self, messages: list) -> dict:
-        """Call Ollama API with tool support"""
+        """Call Ollama API with tool support (works with both Cloud and local)"""
         # Convert tools to Ollama format
         tools = []
         for tool in TOOL_DEFINITIONS:
@@ -69,9 +74,15 @@ class ChahlieAgent:
             "stream": False
         }
         
+        # Build headers - include API key for Ollama Cloud
+        headers = {"Content-Type": "application/json"}
+        if self.ollama_api_key:
+            headers["Authorization"] = f"Bearer {self.ollama_api_key}"
+        
         response = requests.post(
             f"{self.ollama_host}/api/chat",
             json=payload,
+            headers=headers,
             timeout=120
         )
         response.raise_for_status()
@@ -275,6 +286,7 @@ class ChahlieAgent:
         if self.backend == "anthropic":
             yield from self._process_anthropic(user_message)
         else:
+            # Both ollama-cloud and ollama-local use the same processing
             yield from self._process_ollama(user_message)
     
     def chat(self, user_message: str) -> str:

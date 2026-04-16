@@ -8,7 +8,7 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Powered by Claude](https://img.shields.io/badge/Powered%20by-Claude-orange.svg)](https://anthropic.com)
+[![Powered by Ollama](https://img.shields.io/badge/Powered%20by-Ollama%20Cloud-purple.svg)](https://ollama.com)
 
 *Version 1.0.0 "Green Monstah"*
 
@@ -33,7 +33,7 @@ Chahlie (Boston pronunciation of "Charlie", like [Charlie on the MTA](https://en
 - 🤖 **Full Agentic Capabilities** - Read/write files, run commands, search code
 - 🗣️ **Boston Personality** - Authentic Boston slang and attitude
 - 🎨 **Beautiful Terminal UI** - Clean, styled interface with Fenway Green theme
-- ⚡ **Powered by Claude** - Anthropic's Claude for intelligence
+- ⚡ **Powered by Ollama Cloud** - Access top AI models via Ollama
 - 🔧 **Tool Use** - Watches Chahlie work with real-time tool execution
 
 ## Installation
@@ -41,14 +41,14 @@ Chahlie (Boston pronunciation of "Charlie", like [Charlie on the MTA](https://en
 ```bash
 # Clone the repo
 git clone https://github.com/AaronGrace978/Chahlie.git
-cd chahlie
+cd Chahlie
 
 # Install dependencies
 pip install -r requirements.txt
 
 # Set up your API key
 cp .env.example .env
-# Edit .env and add your ANTHROPIC_API_KEY
+# Edit .env and add your OLLAMA_API_KEY from https://ollama.com/settings/keys
 
 # Run Chahlie
 python run.py
@@ -133,13 +133,29 @@ Chahlie can help you with:
 Create a `.env` file in the project root:
 
 ```bash
-ANTHROPIC_API_KEY=your-api-key-here
+# Get your API key from https://ollama.com/settings/keys
+OLLAMA_API_KEY=your-ollama-cloud-api-key-here
+
+# Choose your model (optional, defaults to qwen3-coder-next)
+OLLAMA_MODEL=qwen3-coder-next
 ```
+
+### Available Ollama Cloud Models
+
+| Model | Description | Best For |
+|-------|-------------|----------|
+| `qwen3-coder-next` | Coding-focused, optimized for agentic workflows | Default choice |
+| `qwen3.5` | Multimodal, exceptional utility (6.3M pulls) | General coding |
+| `devstral-small-2` | 24B model, excels at multi-file editing | Large codebases |
+| `glm-5.1` | SOTA for agentic engineering | Complex tasks |
+| `gemma4` | Frontier performance from Google | Reasoning |
+
+See all models at [ollama.com/search?c=cloud](https://ollama.com/search?c=cloud)
 
 ## Tech Stack
 
 - **Python 3.10+**
-- **Anthropic Claude** - AI backbone
+- **Ollama Cloud** - AI backbone with top models
 - **Rich** - Beautiful terminal UI
 - **Click** - CLI framework
 
