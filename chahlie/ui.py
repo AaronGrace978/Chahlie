@@ -22,7 +22,7 @@ from rich.spinner import Spinner
 from rich.align import Align
 from rich import box
 
-from .config import THEME, APP_NAME, APP_VERSION, APP_CODENAME, CREDITS
+from .config import THEME, APP_NAME, APP_VERSION, APP_CODENAME, CREDITS, CURSOR_BOSTON
 from .personality import get_greeting, get_boston_fact
 
 
@@ -36,6 +36,16 @@ BANNER = r"""
   | |   | |_| | / _ \ | |_| | |    | ||  _|  
   | |___|  _  |/ ___ \|  _  | |___ | || |___ 
    \____|_| |_/_/   \_\_| |_|_____|___|_____|
+"""
+
+CURSOR_BOSTON_LOGO = r"""
+   ██████╗██╗   ██╗██████╗ ███████╗ ██████╗ ██████╗ 
+  ██╔════╝██║   ██║██╔══██╗██╔════╝██╔═══██╗██╔══██╗
+  ██║     ██║   ██║██████╔╝███████╗██║   ██║██████╔╝
+  ██║     ██║   ██║██╔══██╗╚════██║██║   ██║██╔══██╗
+  ╚██████╗╚██████╔╝██║  ██║███████║╚██████╔╝██║  ██║
+   ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝
+                    B O S T O N                      
 """
 
 SKYLINE = r"""
@@ -84,7 +94,7 @@ def print_greeting():
 def print_help():
     """Print help information"""
     help_table = Table(
-        title="Commands",
+        title="Chahlie Commands",
         box=box.ROUNDED,
         border_style="green",
         title_style="bold green"
@@ -98,40 +108,50 @@ def print_help():
     help_table.add_row("/fact", "Get a random Boston fact")
     help_table.add_row("/about", "About Chahlie")
     help_table.add_row("/model", "Show current model")
+    help_table.add_row("/cursorboston", "Learn about Cursor Boston!")
     
     console.print(help_table)
+    console.print("[dim]Chahlie is an official product of Cursor Boston[/dim]")
     console.print()
 
 
 def print_about():
     """Print about information"""
     about = f"""
-[bold green]Chahlie[/bold green] - The Boston Coding Agent
+[bold green]CHAHLIE[/bold green] - The Boston Coding Agent
+[dim]v{APP_VERSION} "{APP_CODENAME}"[/dim]
 
-[cyan]Version:[/cyan] {APP_VERSION} "{APP_CODENAME}"
+[bold cyan]== CURSOR BOSTON ==[/bold cyan]
+{CURSOR_BOSTON['tagline']}
 
-[cyan]What is Chahlie?[/cyan]
-An agentic AI coding assistant with authentic Boston personality.
-Built for developers who appreciate good code and good vibes.
+Chahlie is the official AI coding agent of [bold]Cursor Boston[/bold] - 
+the community for Boston developers building with Cursor IDE.
 
-[cyan]Capabilities:[/cyan]
-* Read and write files
-* Search code and content
-* Run shell commands
-* Help with any coding task
+[cyan]What Can Chahlie Do?[/cyan]
+* Read, write, and search your codebase
+* Run shell commands and manage your project
+* Help with any coding task - wicked fast
+* Do it all with authentic Boston personality
 
-[cyan]Credits:[/cyan]
-* [bold]{CREDITS['organization']}[/bold] - Official Product
+[cyan]Leadership:[/cyan]
 * [bold]{CREDITS['founder']}[/bold] - {CREDITS['founder_title']}
 * [bold]{CREDITS['cmo']}[/bold] - Chief Media Officer
 
-[dim]Built with love in Boston[/dim]
+[cyan]Connect:[/cyan]
+* GitHub: {CURSOR_BOSTON['github']}
+
+[bold green]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/bold green]
+[bold]Join the Cursor Boston community![/bold]
+Boston's home for AI-powered development.
+[bold green]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/bold green]
+
+[dim italic]Built with love in Boston - Boston Strong![/dim italic]
 """
     console.print(Panel(
         about,
-        title="[green]About Chahlie[/green]",
+        title="[green]About Chahlie | Cursor Boston[/green]",
         border_style="green",
-        box=box.ROUNDED
+        box=box.DOUBLE
     ))
 
 
@@ -143,6 +163,40 @@ def print_fact():
         title="[blue]Boston Fact[/blue]",
         border_style="blue",
         box=box.ROUNDED
+    ))
+    console.print()
+
+
+def print_cursor_boston():
+    """Print Cursor Boston info"""
+    console.print(Text(CURSOR_BOSTON_LOGO, style="bold cyan"))
+    
+    info = f"""
+[bold cyan]{CURSOR_BOSTON['tagline']}[/bold cyan]
+
+{CURSOR_BOSTON['description']}
+
+[yellow]Why Cursor Boston?[/yellow]
+* Connect with Boston's AI developer community
+* Learn tips & tricks for Cursor IDE
+* Build awesome projects together
+* Network with local tech talent
+
+[yellow]Get Involved:[/yellow]
+* Star us on GitHub: {CURSOR_BOSTON['github']}
+* Use Chahlie in your projects
+* Share your Cursor Boston creations
+
+[bold green]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/bold green]
+  Chahlie is proud to represent Cursor Boston!
+  Let's build somethin' wicked good together, kehd!
+[bold green]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/bold green]
+"""
+    console.print(Panel(
+        info,
+        title="[bold cyan]CURSOR BOSTON[/bold cyan]",
+        border_style="cyan",
+        box=box.DOUBLE
     ))
     console.print()
 
@@ -242,9 +296,15 @@ def clear_screen():
 def print_goodbye():
     """Print goodbye message"""
     console.print()
+    goodbye_msg = """[bold green]See ya later, kehd! Keep writin' wicked good code![/bold green]
+
+[dim]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/dim]
+[cyan]Chahlie[/cyan] is brought to you by [bold]Cursor Boston[/bold]
+Boston's home for AI-powered development.
+[dim]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/dim]"""
     console.print(Panel(
-        Text("See ya later, kehd! Keep writin' wicked good code!", style="bold green"),
-        title="[green]CHAHLIE[/green]",
+        goodbye_msg,
+        title="[green]CHAHLIE | Cursor Boston[/green]",
         border_style="green",
         box=box.ROUNDED
     ))
