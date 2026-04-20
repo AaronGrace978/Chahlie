@@ -11,7 +11,7 @@
 [![Powered by Ollama](https://img.shields.io/badge/Powered%20by-Ollama%20Cloud-purple.svg)](https://ollama.com)
 [![Made with Cursor](https://img.shields.io/badge/Made%20with-Cursor-blue.svg)](https://cursor.com)
 
-*Version 2.2.0 "Big Dig"*
+*Version 2.3.0 "Southie Sharp"*
 
 ---
 
@@ -62,6 +62,27 @@ Chahlie now learns from every interaction, adapts to YOUR coding style, and cont
 
 Every Python file Chahlie writes is automatically syntax-checked and scanned for undefined names *before* he declares the task done. Syntax errors force a retry; undefined-name warnings are surfaced inline so he can fix typos like `weaknesses_counts` vs `weakness_counts` without you ever seeing them. No more shipping broken code.
 
+**NEW IN 2.3: SOUTHIE SHARP!** 🦈
+
+Another sixteen enhancements focused on sharp feedback and safer edits:
+
+- ✂️ **Diffs in every write** - `write_file` and `edit_file` now show a unified diff, not just a character count
+- 🪟 **`open_file` tool** - actually launches Notepad/TextEdit/xdg-open when you say "open it up"
+- 🌀 **Git-aware tools** - `git_status`, `git_diff`, `git_log` as first-class tools
+- 🧹 **Real linter integration** - `lint_code` runs ruff/mypy/eslint when available (not just AST checks)
+- 📂 **Rich `list_directory`** - now shows file sizes and modified times
+- 👁️ **`watch_file` tool** - tail a log or poll a URL until a pattern appears
+- 🔮 **Fuzzy "did you mean?"** - missing-file errors include close matches
+- 💡 **Smart retry hints** - recognizes `git push` no-upstream, `ModuleNotFoundError`, `EADDRINUSE`, etc.
+- 🚫 **Tool-call dedupe** - repeated `read_file` on the same path within a turn returns the cache
+- ⏪ **`/undo` command** - revert the most recent write_file / edit_file
+- 🌿 **Session branching** - `/fork <name>`, `/switch <name>`, `/branches` to snapshot exploratory conversations
+- 🎨 **Syntax highlighting** - `read_file` output is colorized by language
+- 🧭 **Project-scoped memory** - walks up to git root, so running from a subdir still uses the same memory
+- 🎯 **Model router** - optional `CHAHLIE_SMALL_MODEL` handles trivial chat, big model reserved for code
+- 🔁 **Test-failure auto-analysis** - when `run_tests` fails, a sub-agent drops a one-paragraph root-cause analysis into the output
+- 🏷️ **Banner version fix** - no more "v1.0.0 Green Monstah" five versions later
+
 **NEW IN 2.2: THE BIG DIG!** 🏗️
 
 A full overhaul focused on speed, safety, and smarts. Chahlie now:
@@ -103,6 +124,17 @@ A full overhaul focused on speed, safety, and smarts. Chahlie now:
 - 🧩 **PLUGIN SYSTEM** - Drop Python files in `~/.chahlie/plugins/` to add your own tools
 - ↩️ **TRANSACTIONAL EDITS** - Snapshot + rollback for multi-file changes
 - 🖥️ **OPTIONAL TUI** - Launch with `--tui` for a Textual-powered terminal app
+- 🪟 **OS file opener** - `open_file` launches your default app on Win/macOS/Linux
+- 🌀 **GIT-AWARE TOOLS** - First-class `git_status`, `git_diff`, `git_log`
+- 🧹 **REAL LINTER INTEGRATION** - `lint_code` runs ruff/mypy/eslint
+- 👁️ **WATCH FILES** - Tail logs or poll URLs until a pattern hits
+- 🔮 **FUZZY "DID YOU MEAN?"** - Close-match suggestions on missing files
+- 💡 **SMART RETRY HINTS** - Actionable fixes on common shell failures
+- ⏪ **UNDO LAST WRITE** - `/undo` reverts the most recent file change
+- 🌿 **SESSION BRANCHING** - `/fork`, `/switch`, `/branches`
+- 🎨 **SYNTAX-HIGHLIGHTED reads** - Colorized `read_file` output
+- 🎯 **MODEL ROUTER** - Optional small model for trivial chat
+- 🔁 **TEST-FAILURE ANALYSIS** - Sub-agent root-causes failing tests inline
 
 ## Installation
 
@@ -159,6 +191,10 @@ python -m chahlie --no-memory
 | **🏗️ `/cost`** | **Show token count and estimated session cost** |
 | **🏗️ `/primer`** | **Show the auto-detected project context** |
 | **🏗️ `/plugins`** | **List loaded plugins and any warnings** |
+| **🦈 `/undo`** | **Revert the most recent write_file / edit_file** |
+| **🦈 `/fork <name>`** | **Snapshot the current conversation to a branch** |
+| **🦈 `/switch <name>`** | **Restore a saved conversation branch** |
+| **🦈 `/branches`** | **List saved conversation branches** |
 
 ### CLI flags (v2.2)
 

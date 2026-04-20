@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Generator, Optional
 
+import re
 from .config import (
     BACKEND,
     ANTHROPIC_API_KEY, ANTHROPIC_MODEL,
@@ -32,7 +33,23 @@ from .config import (
     LLM_REFLECTION,
     SEMANTIC_MEMORY, EMBEDDING_MODEL, SEMANTIC_TOP_K,
     COST_RATES, PLUGINS_DIR,
+    SMALL_MODEL, ROUTER_MAX_TRIVIAL_CHARS,
+    TOOL_DEDUPE,
 )
+
+# Read-only tools whose output is safe to cache within a single agent turn.
+_DEDUPABLE_TOOLS = {
+    "read_file", "list_directory", "search_files", "search_content",
+    "git_status", "git_diff", "git_log", "verify_code",
+}
+
+# Heuristic regex for trivial chat that doesn't need the big model.
+_TRIVIAL_PATTERNS = [
+    re.compile(r"^(hi|hey|yo|sup|hello|hola|howdy|ayy+)\b", re.I),
+    re.compile(r"\b(thanks|thank you|thx|ty|appreciate it|nice|cool|sweet|sick|pissa)\b", re.I),
+    re.compile(r"^(what'?s up|wud up|whats good|how'?s it going)", re.I),
+    re.compile(r"^(bye|later|peace|gn|good night|good morning)\b", re.I),
+]
 from .personality import SYSTEM_PROMPT, get_working, get_success
 from .tools import TOOL_DEFINITIONS, execute_tool, register_plugin_dispatch
 from .memory import ChahlieMemory, ReflectionEngine, PatternLearner
@@ -99,6 +116,9 @@ class ChahlieAgent:
         self.current_task: Optional[str] = None
         self.task_start_time: Optional[datetime] = None
 
+        # --- Per-turn tool-result cache (cleared at the start of each user msg) ---
+        self._tool_cache: dict = {}
+
     # -----------------------------------------------------------------
     # initialization helpers
     # -----------------------------------------------------------------
@@ -144,9 +164,52 @@ class ChahlieAgent:
 
     def reset(self) -> None:
         self.conversation_history = []
+        self._tool_cache.clear()
         if self.memory:
             self.memory.end_session("Session cleared by user")
             self.memory.start_session()
+
+    # -----------------------------------------------------------------
+    # model router
+    # -----------------------------------------------------------------
+
+    def _select_model(self, user_message: str) -> str:
+        """Choose a model for this turn. Defaults to self.model; downgrades to
+        SMALL_MODEL for short trivial chat when configured."""
+        if not SMALL_MODEL or self.backend == "anthropic":
+            return self.model
+        text = (user_message or "").strip()
+        if len(text) > ROUTER_MAX_TRIVIAL_CHARS:
+            return self.model
+        for rx in _TRIVIAL_PATTERNS:
+            if rx.search(text):
+                return SMALL_MODEL
+        return self.model
+
+    # -----------------------------------------------------------------
+    # session branching
+    # -----------------------------------------------------------------
+
+    def fork_session(self, name: str) -> Optional[str]:
+        if not self.memory:
+            return None
+        path = self.memory.save_branch(name, self.conversation_history)
+        return str(path)
+
+    def switch_session(self, name: str) -> Optional[str]:
+        if not self.memory:
+            return None
+        payload = self.memory.load_branch(name)
+        if payload is None:
+            return None
+        self.conversation_history = payload.get("conversation_history", [])
+        self._tool_cache.clear()
+        return name
+
+    def list_branches(self) -> list:
+        if not self.memory:
+            return []
+        return self.memory.list_branches()
 
     # -----------------------------------------------------------------
     # prompt construction
@@ -301,12 +364,19 @@ class ChahlieAgent:
             })
         return tools
 
-    def _call_ollama(self, messages: list[dict], stream: bool) -> Generator[dict, None, None]:
+    def _call_ollama(
+        self,
+        messages: list[dict],
+        stream: bool,
+        *,
+        model: Optional[str] = None,
+    ) -> Generator[dict, None, None]:
         """Yields incremental chunks when streaming, or a single chunk otherwise."""
         tools = self._ollama_tools()
+        use_model = model or self.model
         if not stream:
             resp = self.client.chat(
-                model=self.model, messages=messages, tools=tools, stream=False,
+                model=use_model, messages=messages, tools=tools, stream=False,
             )
             yield {
                 "role": resp.message.role,
@@ -322,7 +392,7 @@ class ChahlieAgent:
         accumulated = ""
         final_tool_calls: list[dict] = []
         for chunk in self.client.chat(
-            model=self.model, messages=messages, tools=tools, stream=True,
+            model=use_model, messages=messages, tools=tools, stream=True,
         ):
             delta_text = ""
             msg = getattr(chunk, "message", None)
@@ -356,6 +426,7 @@ class ChahlieAgent:
         if self.memory:
             self.memory.track_message("user", user_message)
         self.cost.add_input(user_message)
+        self._tool_cache.clear()
 
         system_prompt = self._get_enhanced_system_prompt(user_message)
         self.cost.add_input(system_prompt)
@@ -365,6 +436,7 @@ class ChahlieAgent:
         self.task_start_time = datetime.now()
 
         use_stream = STREAMING
+        routed_model = self._select_model(user_message)
 
         while True:
             # Compact history if it's grown too large
@@ -381,7 +453,7 @@ class ChahlieAgent:
             try:
                 final_payload = None
                 streamed_text = ""
-                for chunk in self._call_ollama(messages, stream=use_stream):
+                for chunk in self._call_ollama(messages, stream=use_stream, model=routed_model):
                     if chunk.get("stream_delta"):
                         streamed_text += chunk["content"]
                         yield AgentEvent(type="text", content=chunk["content"], data={"streaming": True})
@@ -440,7 +512,21 @@ class ChahlieAgent:
             data={"tool": tool_name, "input": tool_args},
         )
 
-        result = execute_tool(tool_name, tool_args)
+        cache_key = None
+        if TOOL_DEDUPE and tool_name in _DEDUPABLE_TOOLS:
+            try:
+                cache_key = (tool_name, json.dumps(tool_args, sort_keys=True, default=str))
+            except Exception:
+                cache_key = None
+
+        if cache_key is not None and cache_key in self._tool_cache:
+            result = self._tool_cache[cache_key]
+            # Mark it as a cache hit in the output so the LLM knows it's a repeat.
+            # We don't want to bill input tokens twice for the exact same payload.
+        else:
+            result = execute_tool(tool_name, tool_args)
+            if cache_key is not None and result.success:
+                self._tool_cache[cache_key] = result
 
         if self.memory:
             self.memory.track_tool_use(tool_name, tool_args, result.success)
@@ -469,6 +555,7 @@ class ChahlieAgent:
             data={
                 "tool": tool_name, "success": result.success,
                 "output": result.output, "error": result.error,
+                "input": tool_args,
             },
         )
 
@@ -579,6 +666,7 @@ class ChahlieAgent:
                     data={
                         "tool": block.name, "success": result.success,
                         "output": result.output, "error": result.error,
+                        "input": block.input,
                     },
                 )
                 tool_results.append({

@@ -73,6 +73,23 @@ COST_RATES = {
     "anthropic":   {"input": 3.0, "output": 15.0},
 }
 
+# --- Model router ---
+# Optional small/cheap model to use for trivial chat (greetings, thanks, etc.).
+# If unset, all turns use OLLAMA_MODEL.
+SMALL_MODEL = os.getenv("CHAHLIE_SMALL_MODEL", "").strip() or None
+# Max user message length (chars) to consider routing to the small model.
+ROUTER_MAX_TRIVIAL_CHARS = int(os.getenv("CHAHLIE_ROUTER_MAX_TRIVIAL_CHARS", "80"))
+
+# --- Tool call dedupe ---
+# Cache read-only tool calls within a single agent turn so repeated calls
+# return the same result instead of re-executing. Always-on; set to False
+# via env to disable if it causes issues.
+TOOL_DEDUPE = os.getenv("CHAHLIE_TOOL_DEDUPE", "true").lower() in ("1", "true", "yes")
+
+# --- Syntax highlighting ---
+# When True, the classic CLI renders read_file output with Pygments colors.
+SYNTAX_HIGHLIGHT = os.getenv("CHAHLIE_SYNTAX_HIGHLIGHT", "true").lower() in ("1", "true", "yes")
+
 # --- Plugins ---
 # Directory Chahlie scans for user-provided tool extensions on startup.
 PLUGINS_DIR = os.getenv("CHAHLIE_PLUGINS_DIR", str(os.path.expanduser("~/.chahlie/plugins")))
@@ -92,8 +109,8 @@ THEME = {
 # App Info
 APP_NAME = "Chahlie"
 APP_TAGLINE = "The Boston Coding Agent"
-APP_VERSION = "1.0.0"
-APP_CODENAME = "Green Monstah"
+# Pulled from the package __init__ so we only bump version in one place.
+from . import __version__ as APP_VERSION, __codename__ as APP_CODENAME  # noqa: E402
 
 # Cursor Info
 CURSOR = {

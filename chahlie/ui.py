@@ -127,7 +127,16 @@ def print_help():
     help_table.add_row("/profile", "View your learned coding profile")
     help_table.add_row("/reflect", "See Chahlie's self-reflection & improvement plan")
     help_table.add_row("/learnings", "View all learned patterns")
-    
+    help_table.add_row("")
+    help_table.add_row("[bold green]BIG DIG COMMANDS[/bold green]", "")
+    help_table.add_row("/cost", "Show token count and estimated session cost")
+    help_table.add_row("/primer", "Show auto-detected project context")
+    help_table.add_row("/plugins", "List loaded plugins")
+    help_table.add_row("/undo", "Revert the most recent write_file / edit_file")
+    help_table.add_row("/fork <name>", "Snapshot the current conversation to a branch")
+    help_table.add_row("/switch <name>", "Restore a saved conversation branch")
+    help_table.add_row("/branches", "List saved conversation branches")
+
     console.print(help_table)
     console.print()
     console.print("[dim cyan]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/dim cyan]")
@@ -329,10 +338,46 @@ def print_tool_use(tool_name: str, tool_input: dict):
     ))
 
 
-def print_tool_result(tool_name: str, success: bool, output: str, error: str = None):
-    """Print tool result"""
+_EXT_TO_LEXER = {
+    ".py": "python", ".js": "javascript", ".mjs": "javascript", ".cjs": "javascript",
+    ".ts": "typescript", ".tsx": "tsx", ".jsx": "jsx",
+    ".go": "go", ".rs": "rust", ".rb": "ruby", ".java": "java",
+    ".c": "c", ".h": "c", ".cpp": "cpp", ".cc": "cpp",
+    ".sh": "bash", ".bash": "bash", ".zsh": "bash",
+    ".html": "html", ".css": "css", ".scss": "scss",
+    ".json": "json", ".yaml": "yaml", ".yml": "yaml", ".toml": "toml",
+    ".md": "markdown", ".sql": "sql", ".xml": "xml",
+}
+
+
+def _lexer_for_path(path: str) -> str | None:
+    from pathlib import Path as _P
+    ext = _P(path).suffix.lower()
+    return _EXT_TO_LEXER.get(ext)
+
+
+def print_tool_result(tool_name: str, success: bool, output: str, error: str = None, tool_input: dict = None):
+    """Print tool result. Syntax-highlight read_file output when possible."""
+    from .config import SYNTAX_HIGHLIGHT
     if success:
-        display = output if len(output) < 500 else output[:500] + "\n... (truncated)"
+        display = output if len(output) < 2000 else output[:2000] + "\n... (truncated)"
+
+        # Syntax-highlight read_file output when we can identify the language
+        if (
+            SYNTAX_HIGHLIGHT and tool_name == "read_file"
+            and tool_input and tool_input.get("path")
+        ):
+            lexer = _lexer_for_path(tool_input["path"])
+            if lexer:
+                syntax = Syntax(display, lexer, theme="monokai", word_wrap=True, line_numbers=False)
+                console.print(Panel(
+                    syntax,
+                    title=f"[green]+ {tool_name} succeeded[/green] [dim]({tool_input.get('path')})[/dim]",
+                    border_style="green",
+                    box=box.ROUNDED,
+                ))
+                return
+
         console.print(Panel(
             Text(display, style="green"),
             title=f"[green]+ {tool_name} succeeded[/green]",

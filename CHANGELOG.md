@@ -2,6 +2,112 @@
 
 All notable changes to Chahlie will be documented in this file.
 
+## [2.3.0] "Southie Sharp" - 2026-04-20
+
+Another sixteen-enhancement sprint, this time focused on sharper feedback
+on every code change (unified diffs, real linters, did-you-mean hints) and
+safer exploration (undo, session branching, tool-result dedupe). All
+existing v2.1 and v2.2 regression tests stayed green.
+
+### Added
+
+#### Quick wins
+- 🪟 **`open_file` tool** - cross-platform launch of the user's default app
+  (`os.startfile` on Windows, `open` on macOS, `xdg-open` elsewhere). Fixes
+  the "you said 'open it up' and I read_file'd it instead" UX miss.
+- 📂 **Richer `list_directory`** - now shows `FILE|DIR`, human-readable size,
+  and modified time per entry. Missing-directory errors include fuzzy hints.
+- 🌀 **Git-aware tools** - `git_status`, `git_diff`, `git_log` as first-class
+  tools with structured output. Faster than the model guessing `git` flags
+  and parsing free-form stdout.
+- ✂️ **Diff preview** (`chahlie/differ.py`) - `write_file` and `edit_file`
+  now include a unified diff + `+N / -M` summary in their success output, so
+  you can see EXACTLY what changed instead of just "wrote 271 characters".
+- 🎨 **Syntax-highlighted `read_file`** - the classic CLI pipes `read_file`
+  output through `rich.syntax.Syntax` using a lexer detected from the file
+  extension. Toggle with `CHAHLIE_SYNTAX_HIGHLIGHT=false`.
+- 🏷️ **Banner version fix** - `config.APP_VERSION` and `APP_CODENAME` now
+  pull from `chahlie/__init__.py` so the banner stops reporting "v1.0.0
+  Green Monstah" five versions later.
+
+#### Meaningful
+- 🧭 **Project-scoped memory (git-root detection)** - `ChahlieMemory()`
+  walks up from `cwd` looking for a `.git` directory and pins `.chahlie/`
+  to the project root. Running from a nested subdir no longer fragments
+  memory into multiple `.chahlie/` stores.
+- 🧹 **`lint_code` tool** - runs `ruff` + `mypy` for Python, `eslint` for
+  JS/TS, each only when installed. Reports per-linter exit codes. Gracefully
+  returns "no linters installed" instead of failing.
+- 💡 **Smart retry hints** (`chahlie/retry_hints.py`) - when `run_command`
+  fails, we append a concrete hint for known patterns:
+  "has no upstream branch" → `git push -u origin HEAD`,
+  `ModuleNotFoundError: '<X>'` → `pip install <X>`,
+  `command not found: <X>` → PATH hint,
+  `EADDRINUSE :8080` → port-in-use hint, plus ~10 more.
+- 🚫 **Tool-call dedupe** - `read_file`, `list_directory`, `search_*`,
+  `git_*`, `verify_code` results are cached within a single agent turn.
+  Keyed on `(tool_name, json.dumps(args, sort_keys=True))`. Cache clears
+  at the start of every user message.
+- ⏪ **`/undo` command** - reverts the most recent `write_file` or
+  `edit_file`. `tools.py` maintains a 20-entry undo stack with previous
+  file contents; if the file didn't exist before the write, undo deletes it.
+
+#### Ambitious
+- 🔮 **Fuzzy file-path matching** (`chahlie/fuzzy.py`) - `read_file`,
+  `edit_file`, `list_directory`, and `open_file` errors for missing paths
+  now include a "Did you mean: ..." suffix using `difflib.get_close_matches`
+  over both full paths and basenames. Skips `.git`, `node_modules`, `dist`,
+  `.venv`, `.chahlie`, etc. Scans at most 2000 files.
+- 🎯 **Model router** - optional `CHAHLIE_SMALL_MODEL` env var. Trivial chat
+  (greetings, thanks, short messages matching a small regex set) routes to
+  the small model; code and long messages stay on the main model. Cuts
+  per-session cost without hurting coding quality.
+- 🌿 **Session branching** - `ChahlieMemory.save_branch(name, history)`,
+  `load_branch(name)`, `list_branches()`. Stored as JSON under
+  `.chahlie/branches/<name>.json`. Exposed via `/fork <name>`,
+  `/switch <name>`, `/branches`.
+- 🔁 **Test-failure auto-analysis** - when `run_tests` exits non-zero, we
+  call the sub-agent with the failure output and append a one-paragraph
+  root-cause + next-action diagnosis to the tool result. Parent agent sees
+  the analysis inline; sub-agent has no memory so it doesn't pollute
+  learnings.
+- 👁️ **`watch_file` tool** - polls a file or URL at 1Hz until a regex
+  matches or `timeout_s` elapses (clamped to 1-300s). Enables "run this
+  migration and tell me when 'migrated 100%' appears in the log" flows.
+
+### Changed
+- `chahlie/tools.py` - shared `_record_undo()` hook in `write_file` /
+  `edit_file`, fuzzy-match suffixes appended to file-not-found errors,
+  retry-hint suffixes appended to `run_command` failures, 6 new tools
+  wired into dispatch (`open_file`, `git_status`, `git_diff`, `git_log`,
+  `lint_code`, `watch_file`).
+- `chahlie/agent.py` - per-turn `_tool_cache`, `_select_model()` router,
+  `fork_session()` / `switch_session()` / `list_branches()` methods. Tool
+  result events now include `input` so the UI can pick lexers for syntax
+  highlighting. `_call_ollama` accepts an optional `model=` override.
+- `chahlie/ui.py` - `print_tool_result` now takes `tool_input` and
+  syntax-highlights `read_file` output via the Pygments lexer map. `/help`
+  table updated with Big Dig + Southie Sharp commands.
+- `chahlie/__main__.py` - `/undo`, `/fork`, `/switch`, `/branches`
+  commands added. Forwards `tool_input` to `print_tool_result`.
+- `chahlie/memory/memory_manager.py` - `ChahlieMemory()` now defaults to
+  the git-root via `_find_project_root()`; adds `save_branch`,
+  `load_branch`, `list_branches`, and `_safe_branch_name` helper.
+- `chahlie/config.py` - new env toggles: `CHAHLIE_SMALL_MODEL`,
+  `CHAHLIE_ROUTER_MAX_TRIVIAL_CHARS`, `CHAHLIE_TOOL_DEDUPE`,
+  `CHAHLIE_SYNTAX_HIGHLIGHT`. `APP_VERSION`/`APP_CODENAME` now sourced
+  from the package `__init__.py`.
+
+### Tests
+- 🧪 **`test_v23.py`** - 38 new regression tests covering every new module:
+  banner wiring (2), list_directory metadata (2), open_file guardrail (1),
+  git tools (2), lint_code graceful (1), watch_file timeout+match (2), diff
+  in writes (3), undo (3), fuzzy match (2), retry hints (4), differ (3),
+  project-root detection (2), branch name sanitization (3), session
+  branching (4), model router (2), tool dedupe (2). All green alongside
+  the 25 Big Dig tests, 9 verifier tests, and the memory smoke test -
+  **72 total**.
+
 ## [2.2.0] "Big Dig" - 2026-04-20
 
 Major expansion pass - fifteen enhancements in one sprint, all with

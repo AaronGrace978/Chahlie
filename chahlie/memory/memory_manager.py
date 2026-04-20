@@ -11,6 +11,21 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, asdict
 
 
+def _find_project_root(start: Path) -> Path:
+    """Walk up looking for a .git directory; fall back to `start` if none found."""
+    p = start.resolve()
+    for candidate in (p, *p.parents):
+        if (candidate / ".git").exists():
+            return candidate
+    return p
+
+
+def _safe_branch_name(name: str) -> str:
+    """Strip characters that can't be used in filenames."""
+    safe = "".join(ch if ch.isalnum() or ch in "-_." else "_" for ch in name.strip())
+    return safe or "branch"
+
+
 @dataclass
 class Session:
     """A single coding session"""
@@ -66,9 +81,17 @@ class ChahlieMemory:
     """
     
     def __init__(self, project_path: str = None):
-        self.project_path = Path(project_path) if project_path else Path.cwd()
+        if project_path:
+            self.project_path = Path(project_path)
+        else:
+            # Walk up from cwd until we find a .git dir (project root). This
+            # keeps memory pinned to the project even when Chahlie is run
+            # from a nested subdir - otherwise you'd fragment memory into
+            # subdirectory-scoped stores.
+            self.project_path = _find_project_root(Path.cwd())
         self.memory_dir = self.project_path / ".chahlie" / "memory"
         self.memory_dir.mkdir(parents=True, exist_ok=True)
+        self.branches_dir = self.project_path / ".chahlie" / "branches"
         
         # File paths
         self.sessions_file = self.memory_dir / "sessions.json"
@@ -276,6 +299,56 @@ class ChahlieMemory:
         
         return results
     
+    # --- session branching ------------------------------------------------
+
+    def save_branch(self, name: str, conversation_history: list) -> Path:
+        """Snapshot current conversation + session counters to .chahlie/branches/<name>.json.
+
+        The agent passes in its `conversation_history` (we don't store it in the
+        memory object to keep responsibilities clean).
+        """
+        self.branches_dir.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "saved_at": datetime.now().isoformat(),
+            "conversation_history": conversation_history,
+            "current_session_messages": self.current_session_messages,
+            "current_session_tools": self.current_session_tools,
+            "current_session_files": self.current_session_files,
+            "current_session_commands": self.current_session_commands,
+            "current_session_start": (
+                self.current_session_start.isoformat()
+                if self.current_session_start else None
+            ),
+        }
+        path = self.branches_dir / f"{_safe_branch_name(name)}.json"
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, default=str)
+        return path
+
+    def load_branch(self, name: str) -> Optional[dict]:
+        """Load a previously saved branch. Returns the payload or None if missing."""
+        path = self.branches_dir / f"{_safe_branch_name(name)}.json"
+        if not path.exists():
+            return None
+        with open(path, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+        self.current_session_messages = payload.get("current_session_messages", [])
+        self.current_session_tools = payload.get("current_session_tools", [])
+        self.current_session_files = payload.get("current_session_files", [])
+        self.current_session_commands = payload.get("current_session_commands", [])
+        start_str = payload.get("current_session_start")
+        if start_str:
+            try:
+                self.current_session_start = datetime.fromisoformat(start_str)
+            except ValueError:
+                self.current_session_start = datetime.now()
+        return payload
+
+    def list_branches(self) -> list:
+        if not self.branches_dir.exists():
+            return []
+        return sorted(p.stem for p in self.branches_dir.glob("*.json"))
+
     def export_memory(self, filepath: str = None):
         """Export all memory to a single file"""
         if not filepath:

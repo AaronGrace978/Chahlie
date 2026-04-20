@@ -5,16 +5,24 @@ The hands that do the work
 
 import os
 import re
+import shutil
 import subprocess
+import sys
+import time
 import glob as glob_module
-import webbrowser
 import urllib.parse
+import urllib.request
+import webbrowser
+from datetime import datetime
 from pathlib import Path
 from typing import Callable, Optional
 from dataclasses import dataclass
 
 from .verifier import verify_file
 from .config import REQUIRE_APPROVAL
+from .differ import render_unified_diff, summarize_diff
+from .fuzzy import format_suggestions
+from .retry_hints import suggest_retry
 
 
 # --- Approval hook (set by UI layer to prompt user; default: auto-deny danger) ---
@@ -280,7 +288,9 @@ TOOL_DEFINITIONS = [
         "description": (
             "Auto-detect and run the project's test suite (pytest / npm test / "
             "cargo test / go test). Use after making code changes to confirm "
-            "nothing broke semantically (syntax-level checks won't catch logic bugs)."
+            "nothing broke semantically (syntax-level checks won't catch logic bugs). "
+            "On failure, a sub-agent auto-analyzes the output and appends a "
+            "short diagnosis."
         ),
         "input_schema": {
             "type": "object",
@@ -293,20 +303,96 @@ TOOL_DEFINITIONS = [
             "required": []
         }
     },
+    {
+        "name": "open_file",
+        "description": (
+            "Open a file in the user's default OS application (Notepad/TextEdit/"
+            "xdg-open). Use when the user says 'open that file' or 'show me X in "
+            "my editor' - NOT for reading contents (use read_file for that)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "Path to file or folder to open"},
+            },
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "git_status",
+        "description": "Show git status in the current project (branch + dirty files). Structured and fast.",
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+    },
+    {
+        "name": "git_diff",
+        "description": (
+            "Show the git diff for the working tree (unstaged + staged), or for a "
+            "specific path if given. Output is truncated to the most recent 8KB."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "Optional path to limit the diff"},
+                "staged": {"type": "boolean", "description": "Show staged diff (--cached)"},
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "git_log",
+        "description": "Show the last N commits on the current branch (oneline format).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "limit": {"type": "integer", "description": "How many commits to show (default 10, max 50)"},
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "lint_code",
+        "description": (
+            "Run the real linter/type-checker for the project when available: "
+            "ruff + mypy for Python, eslint for JS/TS. Gives richer feedback than "
+            "the built-in verify_code - use this as the final quality gate."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "File or directory to lint (default: .)"},
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "watch_file",
+        "description": (
+            "Watch a file or poll a URL until a pattern appears or a timeout hits. "
+            "Use for tailing logs, waiting on CI, watching a long-running process."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "target": {"type": "string", "description": "Path to a file OR http(s):// URL"},
+                "pattern": {"type": "string", "description": "Regex to match; returns when found"},
+                "timeout_s": {"type": "integer", "description": "Max seconds to wait (default 30, max 300)"},
+            },
+            "required": ["target", "pattern"],
+        },
+    },
 ]
 
 
 def read_file(path: str) -> ToolResult:
-    """Read a file's contents"""
+    """Read a file's contents. On missing file, append a did-you-mean suggestion."""
     try:
         filepath = Path(path)
         if not filepath.exists():
             return ToolResult(
-                success=False,
-                output="",
-                error=f"File not found: {path}"
+                success=False, output="",
+                error=f"File not found: {path}." + format_suggestions(path),
             )
-        
+
         content = filepath.read_text(encoding='utf-8')
         return ToolResult(success=True, output=content)
     except Exception as e:
@@ -348,9 +434,22 @@ def write_file(path: str, content: str) -> ToolResult:
     """
     try:
         filepath = Path(path)
+        existed = filepath.exists()
+        old_content = filepath.read_text(encoding="utf-8", errors="ignore") if existed else ""
+
         filepath.parent.mkdir(parents=True, exist_ok=True)
         filepath.write_text(content, encoding='utf-8')
-        base_msg = f"Successfully wrote {len(content)} characters to {path}"
+
+        _record_undo(str(filepath), existed, old_content)
+
+        if existed:
+            summary = summarize_diff(old_content, content)
+            diff = render_unified_diff(old_content, content, path)
+            base_msg = f"Overwrote {path} ({summary})"
+            if diff:
+                base_msg += "\n\n" + diff
+        else:
+            base_msg = f"Created {path} ({len(content)} chars)"
         return _maybe_verify(str(filepath), base_msg)
     except Exception as e:
         return ToolResult(success=False, output="", error=str(e))
@@ -363,7 +462,10 @@ def edit_file(path: str, old_string: str, new_string: str) -> ToolResult:
         if not filepath.exists():
             return ToolResult(
                 success=False, output="",
-                error=f"File not found: {path}. Use write_file to create new files.",
+                error=(
+                    f"File not found: {path}. Use write_file to create new files."
+                    + format_suggestions(path)
+                ),
             )
         original = filepath.read_text(encoding="utf-8")
         count = original.count(old_string)
@@ -385,12 +487,51 @@ def edit_file(path: str, old_string: str, new_string: str) -> ToolResult:
             )
         updated = original.replace(old_string, new_string, 1)
         filepath.write_text(updated, encoding="utf-8")
-        delta = len(updated) - len(original)
-        sign = "+" if delta >= 0 else ""
-        base_msg = f"Edited {path} ({sign}{delta} chars)"
+        _record_undo(str(filepath), True, original)
+
+        summary = summarize_diff(original, updated)
+        diff = render_unified_diff(original, updated, path)
+        base_msg = f"Edited {path} ({summary})"
+        if diff:
+            base_msg += "\n\n" + diff
         return _maybe_verify(str(filepath), base_msg)
     except Exception as e:
         return ToolResult(success=False, output="", error=str(e))
+
+
+# --- Undo ring buffer ---
+# Stores up to UNDO_DEPTH previous file states so the user can `/undo` recent
+# writes. Each entry: (path, existed_before, previous_content_or_None).
+_UNDO_DEPTH = 20
+_undo_stack: "list[tuple[str, bool, Optional[str]]]" = []
+
+
+def _record_undo(path: str, existed: bool, content: str) -> None:
+    _undo_stack.append((path, existed, content if existed else None))
+    if len(_undo_stack) > _UNDO_DEPTH:
+        _undo_stack.pop(0)
+
+
+def undo_last_write() -> Optional[tuple[str, str]]:
+    """Restore the most recent write. Returns (path, message) or None if nothing to undo."""
+    if not _undo_stack:
+        return None
+    path, existed, prev_content = _undo_stack.pop()
+    p = Path(path)
+    try:
+        if existed:
+            p.write_text(prev_content or "", encoding="utf-8")
+            return path, f"Restored {path} to its previous content"
+        else:
+            if p.exists():
+                p.unlink()
+            return path, f"Deleted {path} (it didn't exist before the last write)"
+    except Exception as e:
+        return path, f"UNDO FAILED for {path}: {e}"
+
+
+def undo_depth() -> int:
+    return len(_undo_stack)
 
 
 def delegate(task: str) -> ToolResult:
@@ -455,9 +596,29 @@ def run_tests(path: str = None) -> ToolResult:
             capture_output=True, text=True, timeout=300,
         )
         combined = (proc.stdout or "") + ("\n" + proc.stderr if proc.stderr else "")
+        trimmed = combined[-4000:] or "(no output)"
+        output = f"$ {cmd}\n{trimmed}"
+
+        if proc.returncode != 0:
+            # Kick a sub-agent at the failure output for a one-line diagnosis.
+            # Lazy import to avoid circular deps.
+            try:
+                from .subagent import delegate as _delegate
+                diag = _delegate(
+                    "The following test run FAILED. Read the output and state, in "
+                    "ONE SHORT PARAGRAPH, the most likely root cause and the single "
+                    "next action to take. Do not propose a rewrite. Output:\n\n"
+                    + trimmed,
+                    max_turns=1,
+                )
+                if diag and not diag.startswith("[sub-agent"):
+                    output += "\n\n--- auto-analysis ---\n" + diag
+            except Exception:
+                pass
+
         return ToolResult(
             success=proc.returncode == 0,
-            output=f"$ {cmd}\n{combined[-4000:] or '(no output)'}",
+            output=output,
             error=None if proc.returncode == 0 else f"Tests failed (exit {proc.returncode})",
         )
     except subprocess.TimeoutExpired:
@@ -492,24 +653,204 @@ def verify_code(path: str) -> ToolResult:
         return ToolResult(success=False, output="", error=str(e))
 
 
+def _fmt_size(n: int) -> str:
+    for unit in ("B", "K", "M", "G"):
+        if n < 1024 or unit == "G":
+            return f"{n:>4}{unit}" if unit == "B" else f"{n:>3}{unit}"
+        n //= 1024
+    return f"{n}G"
+
+
 def list_directory(path: str = ".") -> ToolResult:
-    """List directory contents"""
+    """List directory contents with size + mtime."""
     try:
         dirpath = Path(path)
         if not dirpath.exists():
             return ToolResult(
-                success=False,
-                output="",
-                error=f"Directory not found: {path}"
+                success=False, output="",
+                error=f"Directory not found: {path}." + format_suggestions(path),
             )
-        
-        items = []
-        for item in sorted(dirpath.iterdir()):
-            prefix = "📁 " if item.is_dir() else "📄 "
-            items.append(f"{prefix}{item.name}")
-        
-        output = f"Contents of {path}:\n" + "\n".join(items) if items else f"{path} is empty"
-        return ToolResult(success=True, output=output)
+
+        entries = sorted(dirpath.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+        lines = [f"Contents of {dirpath.resolve()} ({len(entries)} entries):"]
+        for item in entries:
+            try:
+                st = item.stat()
+                mtime = datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M")
+                if item.is_dir():
+                    lines.append(f"  DIR   {'':>6}  {mtime}  {item.name}/")
+                else:
+                    lines.append(f"  FILE  {_fmt_size(st.st_size):>6}  {mtime}  {item.name}")
+            except Exception:
+                lines.append(f"  ?     {'':>6}  {'':>16}  {item.name}")
+        if len(entries) == 0:
+            lines.append("  (empty)")
+        return ToolResult(success=True, output="\n".join(lines))
+    except Exception as e:
+        return ToolResult(success=False, output="", error=str(e))
+
+
+def open_file(path: str) -> ToolResult:
+    """Open `path` in the OS default application (Notepad/TextEdit/xdg-open)."""
+    p = Path(path)
+    if not p.exists():
+        return ToolResult(
+            success=False, output="",
+            error=f"Path not found: {path}." + format_suggestions(path),
+        )
+    try:
+        if sys.platform.startswith("win"):
+            os.startfile(str(p.resolve()))  # type: ignore[attr-defined]
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", str(p)])
+        else:
+            subprocess.Popen(["xdg-open", str(p)])
+        return ToolResult(success=True, output=f"Opened {p} in the default application.")
+    except Exception as e:
+        return ToolResult(success=False, output="", error=str(e))
+
+
+# --- Git tools --------------------------------------------------------------
+
+def _git(args: list[str], *, cwd: str = ".") -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["git", *args], cwd=cwd, capture_output=True, text=True, timeout=15,
+    )
+
+
+def git_status() -> ToolResult:
+    try:
+        p = _git(["status", "--porcelain=v1", "-b"])
+        if p.returncode != 0:
+            return ToolResult(success=False, output="", error=(p.stderr or "git failed").strip())
+        lines = (p.stdout or "").splitlines()
+        if not lines:
+            return ToolResult(success=True, output="Clean working tree.")
+        header = lines[0] if lines[0].startswith("##") else ""
+        files = [ln for ln in lines if not ln.startswith("##")]
+        body = "\n".join(f"  {ln}" for ln in files) if files else "  (clean)"
+        return ToolResult(success=True, output=f"{header}\n{body}")
+    except Exception as e:
+        return ToolResult(success=False, output="", error=str(e))
+
+
+def git_diff(path: str = "", staged: bool = False) -> ToolResult:
+    try:
+        args = ["diff"]
+        if staged:
+            args.append("--cached")
+        if path:
+            args += ["--", path]
+        p = _git(args)
+        if p.returncode not in (0, 1):
+            return ToolResult(success=False, output="", error=(p.stderr or "git failed").strip())
+        out = p.stdout or "(no diff)"
+        if len(out) > 8000:
+            out = out[-8000:]
+            out = "... (truncated to last 8KB) ...\n" + out
+        return ToolResult(success=True, output=out)
+    except Exception as e:
+        return ToolResult(success=False, output="", error=str(e))
+
+
+def git_log(limit: int = 10) -> ToolResult:
+    try:
+        limit = max(1, min(50, int(limit or 10)))
+        p = _git(["log", "--oneline", "--decorate", f"-{limit}"])
+        if p.returncode != 0:
+            return ToolResult(success=False, output="", error=(p.stderr or "git failed").strip())
+        return ToolResult(success=True, output=p.stdout.strip() or "(no commits)")
+    except Exception as e:
+        return ToolResult(success=False, output="", error=str(e))
+
+
+# --- Lint ------------------------------------------------------------------
+
+def lint_code(path: str = ".") -> ToolResult:
+    """Run the best-available real linter for the target.
+
+    Dispatches to ruff+mypy for .py, eslint for .js/.ts, and reports a clean
+    result when nothing's installed (so "no linter" never looks like a failure).
+    """
+    p = Path(path)
+    results: list[str] = []
+    any_ran = False
+
+    def _try(cmd: list[str], label: str) -> None:
+        nonlocal any_ran
+        if shutil.which(cmd[0]) is None:
+            return
+        any_ran = True
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            head = (proc.stdout + "\n" + proc.stderr).strip()
+            if not head:
+                results.append(f"[{label}] clean")
+            else:
+                truncated = head if len(head) < 3000 else head[:3000] + "\n... (truncated)"
+                results.append(f"[{label}] exit={proc.returncode}\n{truncated}")
+        except Exception as e:
+            results.append(f"[{label}] failed to run: {e}")
+
+    ext = p.suffix.lower() if p.is_file() else ""
+    target = str(p)
+
+    if p.is_dir() or ext == ".py":
+        _try(["ruff", "check", target], "ruff")
+        _try(["mypy", "--ignore-missing-imports", target], "mypy")
+    if p.is_dir() or ext in (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"):
+        _try(["eslint", target], "eslint")
+
+    if not any_ran:
+        return ToolResult(
+            success=True,
+            output=(
+                "No linters found on PATH. "
+                "Install one of: ruff, mypy, eslint. "
+                "(verify_code still gives basic syntax + undefined-name checks.)"
+            ),
+        )
+    ok = not any("exit=" in r and not r.endswith("exit=0") for r in results)
+    return ToolResult(success=ok, output="\n\n".join(results))
+
+
+# --- watch_file -------------------------------------------------------------
+
+def watch_file(target: str, pattern: str, timeout_s: int = 30) -> ToolResult:
+    """Block until `pattern` matches in `target`, or timeout_s elapses."""
+    timeout_s = max(1, min(300, int(timeout_s or 30)))
+    try:
+        rx = re.compile(pattern)
+    except re.error as e:
+        return ToolResult(success=False, output="", error=f"invalid regex: {e}")
+
+    deadline = time.time() + timeout_s
+    is_url = target.startswith(("http://", "https://"))
+    last_size = 0
+    try:
+        while time.time() < deadline:
+            if is_url:
+                try:
+                    with urllib.request.urlopen(target, timeout=5) as resp:  # nosec: intended
+                        body = resp.read(65536).decode("utf-8", errors="ignore")
+                    if rx.search(body):
+                        return ToolResult(success=True, output=f"Match found at {target}.")
+                except Exception:
+                    pass
+            else:
+                p = Path(target)
+                if p.exists():
+                    try:
+                        st = p.stat()
+                        if st.st_size != last_size:
+                            last_size = st.st_size
+                            body = p.read_text(encoding="utf-8", errors="ignore")
+                            if rx.search(body):
+                                return ToolResult(success=True, output=f"Match found in {target}.")
+                    except Exception:
+                        pass
+            time.sleep(1.0)
+        return ToolResult(success=False, output="", error=f"Timeout after {timeout_s}s - no match for /{pattern}/")
     except Exception as e:
         return ToolResult(success=False, output="", error=str(e))
 
@@ -612,10 +953,16 @@ def run_command(command: str, working_directory: str = None) -> ToolResult:
         if result.stderr:
             output += ("\n" if output else "") + result.stderr
         
+        err_msg = None
+        if result.returncode != 0:
+            err_msg = f"Exit code: {result.returncode}"
+            hint = suggest_retry(result.stdout or "", result.stderr or "")
+            if hint:
+                err_msg += f" | Hint: {hint}"
         return ToolResult(
             success=result.returncode == 0,
             output=output or "(no output)",
-            error=None if result.returncode == 0 else f"Exit code: {result.returncode}"
+            error=err_msg,
         )
     except subprocess.TimeoutExpired:
         return ToolResult(
@@ -700,6 +1047,15 @@ def execute_tool(name: str, arguments: dict) -> ToolResult:
         ),
         "run_tests": lambda args: run_tests(args.get("path")),
         "delegate": lambda args: delegate(args.get("task", "")),
+        "open_file": lambda args: open_file(args.get("path", "")),
+        "git_status": lambda args: git_status(),
+        "git_diff": lambda args: git_diff(args.get("path", ""), bool(args.get("staged", False))),
+        "git_log": lambda args: git_log(int(args.get("limit", 10) or 10)),
+        "lint_code": lambda args: lint_code(args.get("path", ".") or "."),
+        "watch_file": lambda args: watch_file(
+            args.get("target", ""), args.get("pattern", ""),
+            int(args.get("timeout_s", 30) or 30),
+        ),
     }
     
     if name in tools:

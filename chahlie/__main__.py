@@ -312,6 +312,49 @@ def run_interactive():
                         title="[green]PROJECT[/green]", border_style="green", box=box.ROUNDED,
                     ))
                     continue
+                elif command == "/undo":
+                    from .tools import undo_last_write, undo_depth
+                    result = undo_last_write()
+                    if result is None:
+                        ui.console.print("[yellow]Nothing to undo.[/yellow]\n")
+                    else:
+                        path, msg = result
+                        ui.console.print(f"[green]✓ {msg}[/green]  [dim]({undo_depth()} remaining)[/dim]\n")
+                    continue
+                elif command.startswith("/fork"):
+                    parts = command.split(None, 1)
+                    if len(parts) < 2 or not parts[1].strip():
+                        ui.console.print("[dim]Usage: /fork <branch-name>[/dim]\n")
+                        continue
+                    name = parts[1].strip()
+                    path = agent.fork_session(name)
+                    if path:
+                        ui.console.print(f"[green]✓ Forked session to '{name}'[/green] [dim]{path}[/dim]\n")
+                    else:
+                        ui.console.print("[yellow]Memory disabled - can't fork.[/yellow]\n")
+                    continue
+                elif command.startswith("/switch"):
+                    parts = command.split(None, 1)
+                    if len(parts) < 2 or not parts[1].strip():
+                        ui.console.print("[dim]Usage: /switch <branch-name>[/dim]\n")
+                        continue
+                    name = parts[1].strip()
+                    restored = agent.switch_session(name)
+                    if restored:
+                        ui.console.print(f"[green]✓ Switched to branch '{name}'[/green]\n")
+                    else:
+                        ui.console.print(f"[red]No branch named '{name}'[/red]\n")
+                    continue
+                elif command == "/branches":
+                    names = agent.list_branches()
+                    if not names:
+                        ui.console.print("[dim]No saved branches. Try /fork <name>.[/dim]\n")
+                    else:
+                        ui.console.print("[cyan]Saved branches:[/cyan]")
+                        for n in names:
+                            ui.console.print(f"  • {n}")
+                        ui.console.print()
+                    continue
                 elif command == "/plugins":
                     if not agent.plugin_definitions and not agent.plugin_warnings:
                         ui.console.print("[dim]No plugins loaded. Drop .py files in ~/.chahlie/plugins/[/dim]\n")
@@ -361,6 +404,7 @@ def run_interactive():
                     ui.print_tool_result(
                         event.data["tool"], event.data["success"],
                         event.data["output"], event.data.get("error"),
+                        tool_input=event.data.get("input"),
                     )
                 elif event.type == "reflection":
                     _end_stream_if_needed()
