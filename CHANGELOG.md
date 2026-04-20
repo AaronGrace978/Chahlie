@@ -2,6 +2,39 @@
 
 All notable changes to Chahlie will be documented in this file.
 
+## [2.3.1] "Southie Sharp" (perf patch) - 2026-04-20
+
+Follow-up to 2.3.0 targeting response latency. Observed symptom: token
+usage growing ~1.5k per tool-using turn because full `read_file` outputs
+stayed in history forever and the Anthropic path was rebuilding the
+system prompt every tool-loop iteration.
+
+### Added
+- **History tool-output trimming** - old `role=tool` messages (Ollama) and
+  old `tool_result` blocks (Anthropic) are clamped to
+  `CHAHLIE_HISTORY_TOOL_CHAR_CAP` chars (default 1200). The latest two
+  messages are always preserved full-fidelity so the current turn keeps
+  complete context.
+- **Heartbeat printer** - when the LLM goes silent for more than
+  `CHAHLIE_HEARTBEAT_SECONDS` (default 6), prints `[chahlie] still
+  working... Ns` until first-byte arrives. Stops on its own; cancellable.
+- **Debug timing mode** - `CHAHLIE_DEBUG_TIMING=true` prints per-phase ms
+  timings (`system_prompt_build`, `ollama_call`, `anthropic_call`) so the
+  next time something feels slow we can actually see where.
+- **Lazy semantic seeding** - `_seed_semantic_memory()` now runs in a
+  daemon thread so cold-cache embedding calls don't block the first user
+  prompt on startup.
+
+### Changed
+- Anthropic path now caches the enhanced system prompt per user message
+  and reuses it across every tool-loop iteration (was rebuilding it on
+  each iteration, which also re-ran semantic search when enabled).
+
+### Tests
+- `test_perf_patch.py` - 9 new tests for history trimming (Ollama + Anthropic
+  shapes + disabled), heartbeat fire/stop, heartbeat tickle suppression,
+  heartbeat short-task no-tick. **81 total tests green.**
+
 ## [2.3.0] "Southie Sharp" - 2026-04-20
 
 Another sixteen-enhancement sprint, this time focused on sharper feedback

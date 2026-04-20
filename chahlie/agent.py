@@ -35,7 +35,10 @@ from .config import (
     COST_RATES, PLUGINS_DIR,
     SMALL_MODEL, ROUTER_MAX_TRIVIAL_CHARS,
     TOOL_DEDUPE,
+    HISTORY_TOOL_CHAR_CAP, DEBUG_TIMING, HEARTBEAT_SECONDS,
 )
+import time
+import threading
 
 # Read-only tools whose output is safe to cache within a single agent turn.
 _DEDUPABLE_TOOLS = {
@@ -67,6 +70,52 @@ class AgentEvent:
     data: Optional[dict] = None
 
 
+class _Heartbeat:
+    """Background 'still thinking' printer so a slow LLM call doesn't look hung.
+
+    Starts a daemon thread that prints every `interval_s` seconds until
+    `stop()` is called or `tickle()` fires (first-byte from the stream).
+    """
+
+    def __init__(self, *, interval_s: int, on_tick):
+        self.interval = max(2, int(interval_s or 6))
+        self.on_tick = on_tick
+        self._ticked = False
+        self._stopped = False
+        self._thread: Optional[threading.Thread] = None
+        self._start_time = 0.0
+
+    def start(self) -> None:
+        if self.interval <= 0:
+            return
+        self._start_time = time.time()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def tickle(self) -> None:
+        # First byte: don't ever print a heartbeat from this call onward.
+        self._ticked = True
+
+    def stop(self) -> None:
+        self._stopped = True
+
+    def _run(self) -> None:
+        try:
+            while not self._stopped:
+                time.sleep(min(1.0, self.interval))
+                if self._stopped or self._ticked:
+                    return
+                elapsed = int(time.time() - self._start_time)
+                if elapsed >= self.interval:
+                    try:
+                        self.on_tick(elapsed)
+                    except Exception:
+                        pass
+                    self._start_time = time.time()
+        except Exception:
+            pass
+
+
 class ChahlieAgent:
     """Chahlie - the Boston Coding Agent."""
 
@@ -94,7 +143,12 @@ class ChahlieAgent:
         if SEMANTIC_MEMORY and self.enable_memory and hasattr(self, "client") and self.backend != "anthropic":
             try:
                 self.semantic = SemanticMemory(self.client, EMBEDDING_MODEL)
-                self._seed_semantic_memory()
+                # Seed in a daemon thread - embedding every past learning
+                # can take several seconds on cold-cache embedding models,
+                # and we don't want that blocking the first prompt.
+                threading.Thread(
+                    target=self._seed_semantic_memory, daemon=True,
+                ).start()
             except Exception:
                 self.semantic = None
 
@@ -139,6 +193,45 @@ class ChahlieAgent:
             from ollama import Client
             self.client = Client(host=OLLAMA_LOCAL_HOST)
             self.model = OLLAMA_MODEL
+
+    # -----------------------------------------------------------------
+    # history hygiene
+    # -----------------------------------------------------------------
+
+    def _trim_stale_tool_results(self) -> None:
+        """Clamp tool/user-role tool_result payloads in OLD history entries to
+        HISTORY_TOOL_CHAR_CAP chars. The most recent tool block is left alone
+        so the current turn still has full context.
+        """
+        if HISTORY_TOOL_CHAR_CAP <= 0 or len(self.conversation_history) < 4:
+            return
+
+        cap = HISTORY_TOOL_CHAR_CAP
+        suffix = "\n... (output trimmed for context)"
+        # Walk all but the last 2 entries; the tail stays full-fidelity.
+        for msg in self.conversation_history[:-2]:
+            role = msg.get("role")
+            content = msg.get("content")
+
+            # Ollama-style: {"role": "tool", "content": "...big blob..."}
+            if role == "tool" and isinstance(content, str) and len(content) > cap:
+                msg["content"] = content[:cap] + suffix
+
+            # Anthropic-style: {"role": "user", "content": [{"type": "tool_result", "content": "..."}]}
+            if role == "user" and isinstance(content, list):
+                for block in content:
+                    if (
+                        isinstance(block, dict)
+                        and block.get("type") == "tool_result"
+                        and isinstance(block.get("content"), str)
+                        and len(block["content"]) > cap
+                    ):
+                        block["content"] = block["content"][:cap] + suffix
+
+    def _timing(self, label: str, start: float) -> None:
+        if DEBUG_TIMING:
+            dur_ms = int((time.time() - start) * 1000)
+            print(f"[chahlie-timing] {label}: {dur_ms}ms", flush=True)
 
     def _seed_semantic_memory(self) -> None:
         """Populate the semantic store from persisted learnings + session summaries."""
@@ -428,7 +521,9 @@ class ChahlieAgent:
         self.cost.add_input(user_message)
         self._tool_cache.clear()
 
+        _t = time.time()
         system_prompt = self._get_enhanced_system_prompt(user_message)
+        self._timing("system_prompt_build", _t)
         self.cost.add_input(system_prompt)
 
         self.conversation_history.append({"role": "user", "content": user_message})
@@ -439,7 +534,10 @@ class ChahlieAgent:
         routed_model = self._select_model(user_message)
 
         while True:
-            # Compact history if it's grown too large
+            # Trim stale tool outputs before any compaction check so the
+            # estimator doesn't see bloated payloads from prior turns.
+            self._trim_stale_tool_results()
+
             self.conversation_history, compacted = self._maybe_compact(self.conversation_history)
             if compacted:
                 yield AgentEvent(
@@ -453,13 +551,26 @@ class ChahlieAgent:
             try:
                 final_payload = None
                 streamed_text = ""
+                call_start = time.time()
+                heartbeat = _Heartbeat(
+                    interval_s=HEARTBEAT_SECONDS,
+                    on_tick=lambda elapsed: print(f"[chahlie] still working... {elapsed}s", flush=True),
+                )
+                heartbeat.start()
                 for chunk in self._call_ollama(messages, stream=use_stream, model=routed_model):
+                    heartbeat.tickle()  # first byte -> stop the heartbeat
                     if chunk.get("stream_delta"):
                         streamed_text += chunk["content"]
                         yield AgentEvent(type="text", content=chunk["content"], data={"streaming": True})
                     else:
                         final_payload = chunk
+                heartbeat.stop()
+                self._timing("ollama_call", call_start)
             except Exception as e:
+                try:
+                    heartbeat.stop()
+                except Exception:
+                    pass
                 yield AgentEvent(type="error", content=f"Ollama Error: {e}")
                 if self.memory:
                     note = self._llm_reflect_on_failure("api_call", {}, str(e))
@@ -579,21 +690,38 @@ class ChahlieAgent:
         self.current_task = user_message[:200]
         self.task_start_time = datetime.now()
 
+        # Cached system prompt: one build per user message, reused across
+        # every tool-loop iteration. Avoids re-running the pattern-learner
+        # profile + semantic search on every API call.
+        _t = time.time()
+        cached_system = self._get_enhanced_system_prompt(user_message)
+        self._timing("system_prompt_build", _t)
+
         while True:
+            self._trim_stale_tool_results()
             self.conversation_history, compacted = self._maybe_compact(self.conversation_history)
             if compacted:
                 yield AgentEvent(type="thinking", content="(compacting older turns to stay within context)")
 
             yield AgentEvent(type="thinking", content=get_working())
+            heartbeat = _Heartbeat(
+                interval_s=HEARTBEAT_SECONDS,
+                on_tick=lambda elapsed: print(f"[chahlie] still working... {elapsed}s", flush=True),
+            )
+            heartbeat.start()
+            call_start = time.time()
             try:
                 response = self.client.messages.create(
                     model=self.model,
                     max_tokens=MAX_TOKENS,
-                    system=self._get_enhanced_system_prompt(user_message),
+                    system=cached_system,
                     tools=TOOL_DEFINITIONS + self.plugin_definitions,
                     messages=self.conversation_history,
                 )
+                heartbeat.stop()
+                self._timing("anthropic_call", call_start)
             except Exception as e:
+                heartbeat.stop()
                 yield AgentEvent(type="error", content=f"API Error: {e}")
                 if self.memory:
                     note = self._llm_reflect_on_failure("api_call", {}, str(e))

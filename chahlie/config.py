@@ -80,6 +80,18 @@ SMALL_MODEL = os.getenv("CHAHLIE_SMALL_MODEL", "").strip() or None
 # Max user message length (chars) to consider routing to the small model.
 ROUTER_MAX_TRIVIAL_CHARS = int(os.getenv("CHAHLIE_ROUTER_MAX_TRIVIAL_CHARS", "80"))
 
+# --- History tool-output trimming ---
+# Full tool output goes into history for exactly ONE follow-up call (so the
+# LLM can reason on it), then gets clamped to this many chars so it stops
+# inflating every subsequent turn. 0 disables trimming.
+HISTORY_TOOL_CHAR_CAP = int(os.getenv("CHAHLIE_HISTORY_TOOL_CHAR_CAP", "1200"))
+
+# --- Debug / perf visibility ---
+DEBUG_TIMING = os.getenv("CHAHLIE_DEBUG_TIMING", "false").lower() in ("1", "true", "yes")
+
+# Seconds between heartbeat "still working..." events while waiting on an LLM.
+HEARTBEAT_SECONDS = int(os.getenv("CHAHLIE_HEARTBEAT_SECONDS", "6"))
+
 # --- Tool call dedupe ---
 # Cache read-only tool calls within a single agent turn so repeated calls
 # return the same result instead of re-executing. Always-on; set to False
