@@ -1,12 +1,14 @@
 """
-Chahlie's Agent Core
+Chahlie's Agent Core - NOW WITH MEMORY!
 The brain that makes it all work - supports Ollama Cloud, local Ollama, and Anthropic
+NOW WITH RECURSIVE SELF-IMPROVEMENT!
 """
 
 import json
 import os
 from typing import Generator, Optional
 from dataclasses import dataclass
+from datetime import datetime
 
 from .config import (
     BACKEND, 
@@ -16,12 +18,13 @@ from .config import (
 )
 from .personality import SYSTEM_PROMPT, get_working, get_success, get_error
 from .tools import TOOL_DEFINITIONS, execute_tool, ToolResult
+from .memory import ChahlieMemory, ReflectionEngine, PatternLearner
 
 
 @dataclass
 class AgentEvent:
     """Events emitted by the agent during processing"""
-    type: str  # 'thinking', 'text', 'tool_use', 'tool_result', 'error', 'done'
+    type: str  # 'thinking', 'text', 'tool_use', 'tool_result', 'error', 'done', 'reflection'
     content: str
     data: Optional[dict] = None
 
@@ -29,12 +32,26 @@ class AgentEvent:
 class ChahlieAgent:
     """
     The Chahlie Agent - Boston's finest coding assistant
+    NOW WITH MEMORY AND SELF-IMPROVEMENT!
+    
     Supports Ollama Cloud, local Ollama, and Anthropic backends
     """
     
-    def __init__(self, backend: str = None):
+    def __init__(self, backend: str = None, enable_memory: bool = True):
         self.backend = backend or BACKEND
         self.conversation_history = []
+        self.enable_memory = enable_memory
+        
+        # Initialize memory system
+        if self.enable_memory:
+            self.memory = ChahlieMemory()
+            self.reflection_engine = ReflectionEngine(self.memory)
+            self.pattern_learner = PatternLearner(self.memory)
+            self.memory.start_session()
+        else:
+            self.memory = None
+            self.reflection_engine = None
+            self.pattern_learner = None
         
         if self.backend == "anthropic":
             from anthropic import Anthropic
@@ -51,10 +68,68 @@ class ChahlieAgent:
             from ollama import Client
             self.client = Client(host=OLLAMA_LOCAL_HOST)
             self.model = OLLAMA_MODEL
+        
+        # Track current task for reflection
+        self.current_task = None
+        self.task_start_time = None
     
     def reset(self):
-        """Clear conversation history"""
+        """Clear conversation history and end session"""
         self.conversation_history = []
+        if self.memory:
+            self.memory.end_session("Session cleared by user")
+            self.memory.start_session()
+    
+    def _get_enhanced_system_prompt(self) -> str:
+        """
+        Enhance the system prompt with learned patterns
+        
+        This is where Chahlie ADAPTS based on memory
+        """
+        base_prompt = SYSTEM_PROMPT
+        
+        if not self.memory:
+            return base_prompt
+        
+        # Get user profile and learnings
+        profile = self.pattern_learner.get_user_profile()
+        learnings = self.memory.get_learnings()
+        
+        # Build adaptation section
+        adaptations = []
+        
+        if profile["coding_style"]:
+            adaptations.append("\n\nUSER CODING STYLE (learned patterns):")
+            for category, pattern in profile["coding_style"].items():
+                adaptations.append(f"- {pattern}")
+        
+        if profile["communication_style"]:
+            adaptations.append("\n\nUSER COMMUNICATION PREFERENCES:")
+            for category, pattern in profile["communication_style"].items():
+                if "concise" in pattern.lower():
+                    adaptations.append("- Keep responses brief and direct")
+                elif "detailed" in pattern.lower():
+                    adaptations.append("- Provide thorough explanations")
+        
+        if profile["workflow"]:
+            adaptations.append("\n\nUSER WORKFLOW PATTERNS:")
+            for category, pattern in profile["workflow"].items():
+                adaptations.append(f"- {pattern}")
+        
+        # Add recent reflections
+        recent_reflections = self.memory.get_reflections(limit=5)
+        if recent_reflections:
+            adaptations.append("\n\nRECENT LEARNINGS (from self-reflection):")
+            for ref in recent_reflections:
+                if ref.get("learnings"):
+                    for learning in ref["learnings"]:
+                        adaptations.append(f"- {learning.get('pattern', '')}")
+        
+        # Combine base prompt with adaptations
+        if adaptations:
+            return base_prompt + "\n\n".join(adaptations)
+        
+        return base_prompt
     
     def _call_ollama(self, messages: list) -> dict:
         """Call Ollama API with tool support (works with both Cloud and local)"""
@@ -97,8 +172,12 @@ class ChahlieAgent:
     
     def _process_ollama(self, user_message: str) -> Generator[AgentEvent, None, None]:
         """Process with Ollama backend"""
-        # Build messages with system prompt
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        # Track message in memory
+        if self.memory:
+            self.memory.track_message("user", user_message)
+        
+        # Build messages with ENHANCED system prompt (includes learnings)
+        messages = [{"role": "system", "content": self._get_enhanced_system_prompt()}]
         
         # Add conversation history
         for msg in self.conversation_history:
@@ -108,7 +187,12 @@ class ChahlieAgent:
         messages.append({"role": "user", "content": user_message})
         self.conversation_history.append({"role": "user", "content": user_message})
         
+        # Track task start
+        self.current_task = user_message[:200]
+        self.task_start_time = datetime.now()
+        
         # Agent loop
+        tool_results = []
         while True:
             yield AgentEvent(type="thinking", content=get_working())
             
@@ -116,6 +200,10 @@ class ChahlieAgent:
                 response = self._call_ollama(messages)
             except Exception as e:
                 yield AgentEvent(type="error", content=f"Ollama Error: {str(e)}")
+                if self.memory:
+                    self.reflection_engine.reflect_on_tool_use(
+                        "api_call", {}, False, str(e)
+                    )
                 return
             
             message = response.get("message", {})
@@ -129,6 +217,10 @@ class ChahlieAgent:
             messages.append(assistant_msg)
             self.conversation_history.append(assistant_msg)
             
+            # Track in memory
+            if self.memory:
+                self.memory.track_message("assistant", content)
+            
             # Emit text if any
             if content:
                 yield AgentEvent(type="text", content=content)
@@ -136,6 +228,12 @@ class ChahlieAgent:
             # If no tool calls, we're done
             if not tool_calls:
                 yield AgentEvent(type="done", content=get_success())
+                
+                # Reflect on task completion
+                if self.memory:
+                    self.reflection_engine.reflect_on_user_feedback(
+                        user_message, "neutral"  # Could analyze sentiment
+                    )
                 return
             
             # Process tool calls
@@ -158,8 +256,34 @@ class ChahlieAgent:
                     data={"tool": tool_name, "input": tool_args}
                 )
                 
+                # Track tool use
+                if self.memory:
+                    self.memory.track_tool_use(tool_name, tool_args, True)
+                
                 # Execute the tool
                 result = execute_tool(tool_name, tool_args)
+                
+                # Track result
+                if self.memory:
+                    self.memory.track_tool_use(tool_name, tool_args, result.success)
+                    if tool_name == "write_file":
+                        self.memory.track_file_modified(tool_args.get("path", "unknown"))
+                    elif tool_name == "run_command":
+                        self.memory.track_command(tool_args.get("command", ""), result.success)
+                
+                # Reflect on tool result IMMEDIATELY (recursive learning!)
+                if self.memory:
+                    reflection = self.reflection_engine.reflect_on_tool_use(
+                        tool_name, tool_args, result.success, result.output or result.error
+                    )
+                    
+                    # If reflection found a pattern, emit it
+                    if reflection.get("insights"):
+                        yield AgentEvent(
+                            type="reflection",
+                            content=f"💡 Learning: {reflection['insights'][0]}",
+                            data=reflection
+                        )
                 
                 # Emit tool result event
                 yield AgentEvent(
@@ -173,6 +297,8 @@ class ChahlieAgent:
                     }
                 )
                 
+                tool_results.append(result)
+                
                 # Add tool result to messages
                 tool_result_msg = {
                     "role": "tool",
@@ -183,11 +309,19 @@ class ChahlieAgent:
     
     def _process_anthropic(self, user_message: str) -> Generator[AgentEvent, None, None]:
         """Process with Anthropic backend"""
+        # Track message in memory
+        if self.memory:
+            self.memory.track_message("user", user_message)
+        
         # Add user message to history
         self.conversation_history.append({
             "role": "user",
             "content": user_message
         })
+        
+        # Track task start
+        self.current_task = user_message[:200]
+        self.task_start_time = datetime.now()
         
         # Agent loop
         while True:
@@ -197,12 +331,14 @@ class ChahlieAgent:
                 response = self.client.messages.create(
                     model=self.model,
                     max_tokens=MAX_TOKENS,
-                    system=SYSTEM_PROMPT,
+                    system=self._get_enhanced_system_prompt(),
                     tools=TOOL_DEFINITIONS,
                     messages=self.conversation_history
                 )
             except Exception as e:
                 yield AgentEvent(type="error", content=f"API Error: {str(e)}")
+                if self.memory:
+                    self.reflection_engine.reflect_on_tool_use("api_call", {}, False, str(e))
                 return
             
             # Process the response
@@ -230,6 +366,10 @@ class ChahlieAgent:
             if text_content:
                 yield AgentEvent(type="text", content=text_content)
             
+            # Track in memory
+            if self.memory:
+                self.memory.track_message("assistant", text_content)
+            
             # Add assistant response to history
             self.conversation_history.append({
                 "role": "assistant",
@@ -240,6 +380,12 @@ class ChahlieAgent:
             if not has_tool_use or response.stop_reason == "end_turn":
                 if not has_tool_use:
                     yield AgentEvent(type="done", content=get_success())
+                    
+                    # Reflect on task
+                    if self.memory:
+                        self.reflection_engine.reflect_on_user_feedback(
+                            user_message, "neutral"
+                        )
                     return
             
             # Process tool calls
@@ -252,7 +398,31 @@ class ChahlieAgent:
                         data={"tool": block.name, "input": block.input}
                     )
                     
+                    # Track tool use
+                    if self.memory:
+                        self.memory.track_tool_use(block.name, block.input, True)
+                    
                     result = execute_tool(block.name, block.input)
+                    
+                    # Track result
+                    if self.memory:
+                        self.memory.track_tool_use(block.name, block.input, result.success)
+                        if block.name == "write_file":
+                            self.memory.track_file_modified(block.input.get("path", "unknown"))
+                        elif block.name == "run_command":
+                            self.memory.track_command(block.input.get("command", ""), result.success)
+                    
+                    # Reflect on tool result
+                    if self.memory:
+                        reflection = self.reflection_engine.reflect_on_tool_use(
+                            block.name, block.input, result.success, result.output or result.error
+                        )
+                        if reflection.get("insights"):
+                            yield AgentEvent(
+                                type="reflection",
+                                content=f"💡 Learning: {reflection['insights'][0]}",
+                                data=reflection
+                            )
                     
                     yield AgentEvent(
                         type="tool_result",
@@ -293,7 +463,6 @@ class ChahlieAgent:
         if self.backend == "anthropic":
             yield from self._process_anthropic(user_message)
         else:
-            # Both ollama-cloud and ollama-local use the same processing
             yield from self._process_ollama(user_message)
     
     def chat(self, user_message: str) -> str:
@@ -303,3 +472,20 @@ class ChahlieAgent:
             if event.type == "text":
                 final_text += event.content
         return final_text
+    
+    def get_memory_summary(self) -> dict:
+        """Get a summary of what Chahlie has learned"""
+        if not self.memory:
+            return {"enabled": False}
+        
+        return {
+            "enabled": True,
+            "summary": self.memory.get_summary(),
+            "user_profile": self.pattern_learner.get_user_profile(),
+            "improvement_plan": self.reflection_engine.generate_improvement_plan()
+        }
+    
+    def __del__(self):
+        """Cleanup - save session on exit"""
+        if self.memory and self.memory.current_session_start:
+            self.memory.end_session("Session ended")

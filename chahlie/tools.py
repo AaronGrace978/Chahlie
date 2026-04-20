@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass
 
+from .verifier import verify_file
+
 
 @dataclass
 class ToolResult:
@@ -169,6 +171,24 @@ TOOL_DEFINITIONS = [
             "required": ["query"]
         }
     },
+    {
+        "name": "verify_code",
+        "description": (
+            "Run static checks on a Python file (syntax + undefined names). "
+            "Use this after writing code to catch typos and unbound variables "
+            "BEFORE declaring a task complete. Returns any issues found."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Path to the Python file to verify"
+                }
+            },
+            "required": ["path"]
+        }
+    },
 ]
 
 
@@ -190,14 +210,71 @@ def read_file(path: str) -> ToolResult:
 
 
 def write_file(path: str, content: str) -> ToolResult:
-    """Write content to a file"""
+    """Write content to a file.
+
+    For Python files, automatically runs verification afterwards. If the file
+    has a syntax error, the tool reports failure so the agent loop surfaces
+    the error and must fix it before continuing. Undefined-name warnings are
+    included in the output but do not fail the write.
+    """
     try:
         filepath = Path(path)
         filepath.parent.mkdir(parents=True, exist_ok=True)
         filepath.write_text(content, encoding='utf-8')
+
+        base_msg = f"Successfully wrote {len(content)} characters to {path}"
+
+        # Auto-verify Python files
+        if filepath.suffix == ".py":
+            result = verify_file(str(filepath))
+            if result.errors:
+                # Syntax errors -> fail the tool so the agent MUST fix
+                report = result.format()
+                return ToolResult(
+                    success=False,
+                    output=base_msg,
+                    error=(
+                        "File was written but has errors you must fix before "
+                        "proceeding:\n" + report
+                    ),
+                )
+            if result.warnings:
+                warn_report = result.format()
+                return ToolResult(
+                    success=True,
+                    output=(
+                        base_msg
+                        + "\n\nVERIFICATION WARNINGS (fix these before declaring done):\n"
+                        + warn_report
+                    ),
+                )
+
+        return ToolResult(success=True, output=base_msg)
+    except Exception as e:
+        return ToolResult(success=False, output="", error=str(e))
+
+
+def verify_code(path: str) -> ToolResult:
+    """Explicitly verify a file. Use to re-check after fixes."""
+    try:
+        result = verify_file(path)
+        if result.errors:
+            return ToolResult(
+                success=False,
+                output=result.format(),
+                error=f"{len(result.errors)} error(s) found",
+            )
+        if result.warnings:
+            return ToolResult(
+                success=True,
+                output=(
+                    f"No hard errors, but {len(result.warnings)} warning(s):\n"
+                    + result.format()
+                ),
+            )
         return ToolResult(
             success=True,
-            output=f"Successfully wrote {len(content)} characters to {path}"
+            output=f"✓ {path} passed verification (no issues)",
         )
     except Exception as e:
         return ToolResult(success=False, output="", error=str(e))
@@ -379,6 +456,7 @@ def execute_tool(name: str, arguments: dict) -> ToolResult:
         "create_directory": lambda args: create_directory(args.get("path", "")),
         "open_browser": lambda args: open_browser(args.get("url", "")),
         "web_search": lambda args: web_search(args.get("query", "")),
+        "verify_code": lambda args: verify_code(args.get("path", "")),
     }
     
     if name not in tools:

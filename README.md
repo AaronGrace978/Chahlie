@@ -11,7 +11,7 @@
 [![Powered by Ollama](https://img.shields.io/badge/Powered%20by-Ollama%20Cloud-purple.svg)](https://ollama.com)
 [![Made with Cursor](https://img.shields.io/badge/Made%20with-Cursor-blue.svg)](https://cursor.com)
 
-*Version 1.0.0 "Green Monstah"*
+*Version 2.1.0 "Check Ya Work"*
 
 ---
 
@@ -44,6 +44,8 @@ You: Help me create a REST API
 ┌─────────────────────────── CHAHLIE ───────────────────────────┐
 │ No problemo! Let me bang that out for ya...                   │
 └───────────────────────────────────────────────────────────────┘
+
+💡 Learning: write_file works well with these arguments
 ```
 
 </div>
@@ -51,6 +53,14 @@ You: Help me create a REST API
 ## What is Chahlie?
 
 Chahlie (Boston pronunciation of "Charlie", like [Charlie on the MTA](https://en.wikipedia.org/wiki/M.T.A._(song))) is a terminal-based AI coding agent that helps you write wicked good code. Built with authentic Boston personality, Chahlie is your helpful, slightly sarcastic coding buddy who never leaves your terminal.
+
+**NEW IN 2.0: MEMORY & SELF-IMPROVEMENT!** 🧠
+
+Chahlie now learns from every interaction, adapts to YOUR coding style, and continuously improves through self-reflection. The more you work together, the better he gets - like a teammate who actually pays attention!
+
+**NEW IN 2.1: SELF-VERIFICATION LOOP!** ✅
+
+Every Python file Chahlie writes is automatically syntax-checked and scanned for undefined names *before* he declares the task done. Syntax errors force a retry; undefined-name warnings are surfaced inline so he can fix typos like `weaknesses_counts` vs `weakness_counts` without you ever seeing them. No more shipping broken code.
 
 ## Features
 
@@ -61,6 +71,11 @@ Chahlie (Boston pronunciation of "Charlie", like [Charlie on the MTA](https://en
 - 🔧 **Tool Use** - Watch Chahlie work with real-time tool execution
 - 🌐 **Browser Tools** - Open URLs and search the web
 - 🔄 **Multiple Providers** - Ollama Cloud, Local Ollama, or Anthropic Claude
+- 🧠 **MEMORY SYSTEM** - Persistent learning across sessions
+- 📊 **USER PROFILE** - Learns YOUR coding style and preferences
+- 💡 **SELF-REFLECTION** - Analyzes own performance and improves
+- 🔄 **ADAPTIVE PROMPTING** - Adjusts behavior based on learnings
+- ✅ **SELF-VERIFICATION** - Auto-checks every Python file for syntax errors and undefined names before declaring done
 
 ## Installation
 
@@ -94,6 +109,9 @@ python -m chahlie --version
 
 # Show about info
 python -m chahlie --about
+
+# Disable memory system (if needed)
+python -m chahlie --no-memory
 ```
 
 ### Commands
@@ -107,6 +125,10 @@ python -m chahlie --about
 | `/providers` | View available AI providers |
 | `/cursorboston` | Learn about Cursor Boston |
 | `/exit` | Exit Chahlie |
+| **🧠 `/memory`** | **Show memory status and learnings** |
+| **🧠 `/profile`** | **View your learned coding profile** |
+| **🧠 `/reflect`** | **See Chahlie's self-reflection** |
+| **🧠 `/learnings`** | **View all learned patterns** |
 
 ## Example Session
 
@@ -139,12 +161,181 @@ You: Can you help me create a Python script that fetches weather data?
 ║   content: (creating file...)                                 ║
 ╚═══════════════════════════════════════════════════════════════╝
 
+💡 Learning: write_file works well with these arguments
+
 ╔═══════════════════════════════════════════════════════════════╗
 ║   ✓ write_file succeeded                                      ║
 ║   ───────────────────────                                     ║
 ║   Successfully wrote 847 characters to weather.py             ║
 ╚═══════════════════════════════════════════════════════════════╝
 ```
+
+## 🧠 Memory System (NEW!)
+
+Chahlie's memory system is what separates him from every other coding assistant out there. While other tools forget everything when you close the terminal, Chahlie **remembers, learns, and improves**.
+
+### What Chahlie Remembers:
+
+1. **Session History** - Every conversation, every file modified, every command run
+2. **Your Coding Style** - Naming conventions, code structure, documentation habits
+3. **Tool Preferences** - Which tools work well, which ones need adjustment
+4. **Communication Style** - Do you like verbose explanations or quick answers?
+5. **Workflow Patterns** - TDD, refactor-first, or move-fast-and-break-things?
+
+### How It Works:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    CHAHLIE MEMORY SYSTEM                    │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  1. OBSERVE → Watches every interaction                     │
+│                                                             │
+│  2. REFLECT → Analyzes what worked, what didn't             │
+│                                                             │
+│  3. LEARN → Stores patterns with confidence scores          │
+│                                                             │
+│  4. ADAPT → Adjusts system prompt with learnings            │
+│                                                             │
+│  5. IMPROVE → Generates self-improvement plans              │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Memory Commands:
+
+#### `/memory` - Check Memory Status
+```
+🧠 CHAHLIE MEMORY STATUS
+
+Sessions: 15
+Learnings: 47
+Reflections: 23
+Has Context: True
+
+Recent Learnings:
+• User prefers variable_style: snake_case
+• User prefers type_hints: uses_type_hints
+• User prefers communication: concise
+• write_file works well with these arguments
+• run_command needs validation before execution
+```
+
+#### `/profile` - Your Coding Profile
+```
+📋 YOUR CODING PROFILE
+
+Coding Style:
+• User prefers variable_style: snake_case
+• User prefers type_hints: uses_type_hints
+• User prefers documentation: uses_docstrings
+
+Communication:
+• User prefers communication: concise
+
+Workflow:
+• User prefers workflow: test_driven
+
+Confidence: 78%
+
+The more we work together, the better I know ya!
+```
+
+#### `/reflect` - Chahlie's Self-Reflection
+```
+🤔 CHAHLIE'S SELF-REFLECTION
+
+Focus Areas (what I'm working on):
+• Low tool success rate (high priority)
+• Command execution issues (medium priority)
+
+Keep Doing (my strengths):
+• High success rate on tool usage
+• Clear communication
+
+Reflections Analyzed: 23
+
+Always improvin', always learnin'!
+```
+
+#### `/learnings` - All Learned Patterns
+```
+📚 ALL LEARNINGS (47 total)
+
+1. [code_naming] User prefers variable_style: snake_case
+   Confidence: 89% | Seen: 15x
+
+2. [code_style] User prefers type_hints: uses_type_hints
+   Confidence: 92% | Seen: 22x
+
+3. [tool_success] write_file works well with these arguments
+   Confidence: 78% | Seen: 8x
+```
+
+### Memory Storage:
+
+All memory is stored locally in `.chahlie/memory/`:
+```
+.chahlie/
+└── memory/
+    ├── sessions.json       # Session history
+    ├── learnings.json      # Learned patterns
+    ├── context.json        # Project context
+    ├── reflections.json    # Self-reflections
+    └── user_profile.json   # Your coding profile
+```
+
+## ✅ Self-Verification Loop (NEW IN 2.1!)
+
+Small LLMs ship typos. Qwen might write `weaknesses_counts` one line and `weakness_counts` the next and not notice. Chahlie now *does* notice - before you ever see the bug.
+
+### How It Works
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│               CHAHLIE SELF-VERIFICATION LOOP                  │
+├───────────────────────────────────────────────────────────────┤
+│                                                               │
+│  Chahlie writes a .py file                                    │
+│              ↓                                                │
+│  Auto-verifier runs (zero deps, pure stdlib ast)              │
+│              ↓                                                │
+│  ┌─ Syntax error?   → tool FAILS, agent MUST fix before done  │
+│  ├─ Undefined name? → warning surfaced inline in tool output  │
+│  └─ Clean?          → proceed as normal                       │
+│              ↓                                                │
+│  Chahlie fixes issues, optionally re-runs `verify_code`       │
+│              ↓                                                │
+│  ONLY THEN declares task complete                             │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+```
+
+### What Gets Checked
+
+| Check | Severity | What it catches |
+|-------|----------|-----------------|
+| `E-SYNTAX` | Error (fails the write) | `def foo(:` and friends |
+| `W-UNDEF` | Warning (inline in output) | Referenced names never bound anywhere (typos, renamed vars, missing imports) |
+| Star-imports | Auto-skip | `from x import *` disables name check to avoid false positives |
+
+### The `verify_code` Tool
+
+Chahlie can also explicitly re-verify a file after fixes:
+
+```python
+verify_code(path="chahlie/memory/reflection.py")
+# → "✓ chahlie/memory/reflection.py passed verification (no issues)"
+```
+
+### Real Example
+
+During the v2.1 development session, Chahlie (running on qwen3.5) self-modified to add the memory system and shipped 5 bugs in one go:
+- `weaknesses_counts` vs `weakness_counts` (typo)
+- `import_imports` vs `import_lines` (wrong variable)
+- Plus three more schema/lifecycle bugs
+
+The verifier catches the first two **before** the file is considered successfully written. The regression test in `test_verifier.py` uses these exact bugs as fixtures to make sure Chahlie never regresses.
 
 ## Capabilities
 
@@ -155,6 +346,9 @@ Chahlie can help you with:
 - **Shell Commands** - Run git, npm, pip, tests, and more
 - **Project Exploration** - Navigate and understand codebases
 - **Code Writing** - Generate, refactor, and debug code
+- **🧠 Learning Your Style** - Adapts to YOUR preferences
+- **🧠 Self-Improvement** - Gets better with every session
+- **✅ Self-Verification** - Catches its own typos before you see them
 
 ## Configuration
 
@@ -216,6 +410,7 @@ Chahlie speaks with authentic Boston flair:
 - ✅ *"No problemo, kehd!"*
 - ✅ *"That crashed hardah than the Big Dig budget."*
 - ✅ *"Crushed it! Just like the '04 Sox."*
+- ✅ *"I'm learnin' from every interaction, boss!"*
 
 ## Contributing
 
@@ -225,6 +420,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
 - Adding Boston personality and slang
 - Supporting new AI providers
 - Improving the UI
+- Memory system enhancements
 - Boston flavor guidelines
 
 ```bash
@@ -247,6 +443,9 @@ python run.py
 
 > *"The Boston personality makes coding fun again. Crushed it!"*
 > — **Open Source Contributor**
+
+> *"The memory system is a game-changer. Chahlie actually REMEMBERS how I like my code!"*
+> — **Senior Software Engineer**
 
 *Want to share your experience? Open a PR to add your testimonial!*
 
@@ -277,9 +476,37 @@ Projects built using Chahlie will be featured here!
 
 ## 📋 Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for version history and updates.
+### Version 2.1.0 "Check Ya Work" (CURRENT)
+**✅ SELF-VERIFICATION LOOP: Chahlie checks his own code before shipping**
 
-**Current Version:** 1.0.0 "Green Monstah"
+- ✅ **Verifier module** (`chahlie/verifier.py`) - AST-based syntax + undefined-name detection, zero external deps
+- ✅ **Auto-verify on `write_file`** - Python files are checked automatically after every write
+- ✅ **Fail-fast on syntax errors** - Agent loop is forced to fix before declaring done
+- ✅ **Warnings surfaced inline** - Undefined names appear in tool output so the LLM can self-correct
+- ✅ **New `verify_code` tool** - Explicit re-check after fixes
+- ✅ **CODE QUALITY PROTOCOL** - Added to system prompt so Chahlie knows to act on verification feedback
+- 🧪 **Regression tests** (`test_verifier.py`) - 9 tests using real Chahlie bugs as fixtures
+- 🐛 **Fixed pre-existing `SKYLINE` crasher in `ui.py`** - caught immediately by the new verifier
+
+### Version 2.0.0 "Self-Aware Southie"
+**🧠 MAJOR UPDATE: MEMORY & SELF-IMPROVEMENT SYSTEM**
+
+- ✨ **Memory Manager** - Persistent session storage
+- ✨ **Reflection Engine** - Self-analysis and improvement
+- ✨ **Pattern Learner** - Learns YOUR coding style
+- ✨ **Adaptive Prompting** - Adjusts behavior based on learnings
+- ✨ **New Commands** - `/memory`, `/profile`, `/reflect`, `/learnings`
+- ✨ **Real-time Learning** - Shows learnings as they happen
+- 🎨 **Updated UI** - Memory status indicators
+
+### Version 1.0.0 "Green Monstah"
+- Initial release
+- Full agentic capabilities
+- Boston personality
+- Multiple AI backends
+- Beautiful terminal UI
+
+See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
 ## License
 
@@ -312,6 +539,6 @@ MIT License - Use it, modify it, make it wicked bettah.
 
 ---
 
-*"Keep writin' wicked good code, kehd!"*
+*"Keep writin' wicked good code, kehd! And remember - I'm learnin' from every interaction!"*
 
 </div>

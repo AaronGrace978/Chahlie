@@ -87,7 +87,7 @@ def print_banner():
 
 def print_skyline():
     """Print Boston skyline ASCII art"""
-    console.print(Text(SKYLINE, style="dim blue"))
+    console.print(Text(BOSTON_SKYLINE, style="dim blue"))
 
 
 def print_greeting():
@@ -121,12 +121,19 @@ def print_help():
     help_table.add_row("/model", "Show current model")
     help_table.add_row("/providers", "View available AI providers")
     help_table.add_row("/cursorboston", "Learn about Cursor Boston!")
+    help_table.add_row("")
+    help_table.add_row("[bold green]🧠 MEMORY COMMANDS[/bold green]", "")
+    help_table.add_row("/memory", "Show memory status and recent learnings")
+    help_table.add_row("/profile", "View your learned coding profile")
+    help_table.add_row("/reflect", "See Chahlie's self-reflection & improvement plan")
+    help_table.add_row("/learnings", "View all learned patterns")
     
     console.print(help_table)
     console.print()
     console.print("[dim cyan]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/dim cyan]")
     console.print("[bold]Chahlie[/bold] is an official product of [bold cyan]Cursor Boston[/bold cyan]")
     console.print("[dim]Boston's home for AI-powered development[/dim]")
+    console.print("[dim green]🧠 NOW WITH MEMORY & SELF-IMPROVEMENT![/dim green]")
     console.print()
 
 
@@ -147,6 +154,9 @@ the community for Boston developers building with Cursor IDE.
 • Run shell commands and manage your project
 • Help with any coding task - wicked fast
 • Do it all with authentic Boston personality
+• [bold green]🧠 NEW: Learn from every interaction![/bold green]
+• [bold green]🧠 NEW: Adapt to your coding style![/bold green]
+• [bold green]🧠 NEW: Self-reflect and improve![/bold green]
 
 [cyan]Leadership:[/cyan]
 • [bold]{CREDITS['founder']}[/bold] - {CREDITS['founder_title']}
@@ -258,7 +268,7 @@ def print_cursor_boston():
 
 [bold white]🌐 Website:[/bold white]     [link={CURSOR_BOSTON['website']}]{CURSOR_BOSTON['website']}[/link]
 [bold white]🐦 X/Twitter:[/bold white]   [link={CURSOR_BOSTON['x_twitter']}]{CURSOR_BOSTON['x_twitter']}[/link]
-[bold white]💻 GitHub:[/bold white]      [link={CURSOR_BOSTON['github']}]{CURSOR_BOSTON['github']}[/link]
+[bold white]💻 GitHub:[/white]      [link={CURSOR_BOSTON['github']}]{CURSOR_BOSTON['github']}[/link]
 
 [bold cyan]━━━━━━━━━━━━━━ CURSOR IDE ━━━━━━━━━━━━━━━[/bold cyan]
 
@@ -383,6 +393,7 @@ def print_goodbye():
 [dim]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/dim]
 [cyan]Chahlie[/cyan] is brought to you by [bold]Cursor Boston[/bold]
 Boston's home for AI-powered development.
+[dim green]🧠 Memory System Active - I'll remember everything we built together![/dim green]
 [dim]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/dim]"""
     console.print(Panel(
         goodbye_msg,

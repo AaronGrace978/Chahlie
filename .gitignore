@@ -47,3 +47,6 @@ htmlcov/
 
 # Misc
 *.log
+
+# Chahlie runtime memory (per-user, per-project state - not source)
+.chahlie/
