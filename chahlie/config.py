@@ -34,6 +34,49 @@ ANTHROPIC_MODEL = "claude-sonnet-4-20250514"
 
 MAX_TOKENS = 8192
 
+# --- Safety ---
+# When True, run_command will prompt before executing potentially destructive
+# commands (rm -rf, git push --force, DROP TABLE, dd, format, mkfs, etc.).
+REQUIRE_APPROVAL = os.getenv("CHAHLIE_REQUIRE_APPROVAL", "true").lower() in ("1", "true", "yes")
+
+# --- Streaming ---
+# When True, responses are streamed token-by-token where the backend supports it.
+STREAMING = os.getenv("CHAHLIE_STREAMING", "true").lower() in ("1", "true", "yes")
+
+# --- Context compaction ---
+# Approximate token budget before older history gets summarized. Rough heuristic:
+# ~4 chars per token. When total history chars exceed COMPACT_THRESHOLD_CHARS,
+# oldest turns are summarized by a cheap LLM call.
+COMPACT_THRESHOLD_CHARS = int(os.getenv("CHAHLIE_COMPACT_THRESHOLD_CHARS", "24000"))
+# How many most-recent turns to preserve verbatim during compaction.
+COMPACT_PRESERVE_RECENT = int(os.getenv("CHAHLIE_COMPACT_PRESERVE_RECENT", "6"))
+
+# --- LLM-based reflection ---
+# When True, certain reflections upgrade from rule-based to LLM-generated
+# ("what went wrong in that tool call, one sentence").
+LLM_REFLECTION = os.getenv("CHAHLIE_LLM_REFLECTION", "false").lower() in ("1", "true", "yes")
+
+# --- Semantic memory retrieval ---
+# When True, learnings are retrieved by embedding similarity instead of
+# dumping all of them into the prompt. Requires an Ollama embedding model.
+SEMANTIC_MEMORY = os.getenv("CHAHLIE_SEMANTIC_MEMORY", "false").lower() in ("1", "true", "yes")
+EMBEDDING_MODEL = os.getenv("CHAHLIE_EMBEDDING_MODEL", "nomic-embed-text")
+SEMANTIC_TOP_K = int(os.getenv("CHAHLIE_SEMANTIC_TOP_K", "5"))
+
+# --- Cost meter ---
+# Rough $/1M-token rates for the cost meter. Used only as a display heuristic.
+COST_RATES = {
+    # Ollama Cloud is free at time of writing; show 0.0 by default.
+    "ollama-cloud": {"input": 0.0, "output": 0.0},
+    "ollama-local": {"input": 0.0, "output": 0.0},
+    # Anthropic Sonnet 4 public pricing (per million tokens, USD):
+    "anthropic":   {"input": 3.0, "output": 15.0},
+}
+
+# --- Plugins ---
+# Directory Chahlie scans for user-provided tool extensions on startup.
+PLUGINS_DIR = os.getenv("CHAHLIE_PLUGINS_DIR", str(os.path.expanduser("~/.chahlie/plugins")))
+
 # UI Theme - Fenway Green
 THEME = {
     "primary": "#0C2340",      # Navy Blue

@@ -13,10 +13,30 @@ from rich import box
 
 from .agent import ChahlieAgent, AgentEvent
 from .config import (
-    BACKEND, ANTHROPIC_API_KEY, 
-    OLLAMA_CLOUD_HOST, OLLAMA_CLOUD_API_KEY, OLLAMA_LOCAL_HOST, OLLAMA_MODEL
+    BACKEND, ANTHROPIC_API_KEY,
+    OLLAMA_CLOUD_HOST, OLLAMA_CLOUD_API_KEY, OLLAMA_LOCAL_HOST, OLLAMA_MODEL,
 )
+from .tools import set_approval_hook
 from . import ui
+
+
+def _approval_prompter(command: str, reason: str) -> bool:
+    """Interactive approval for dangerous commands."""
+    ui.console.print()
+    ui.console.print(Panel(
+        f"[bold yellow]APPROVAL NEEDED[/bold yellow]\n\n"
+        f"Chahlie wants to run a command flagged as: [red]{reason}[/red]\n\n"
+        f"[white]$ {command}[/white]\n\n"
+        f"[dim]Only approve if you're sure. Ctrl+C to abort entirely.[/dim]",
+        title="[yellow]SAFETY[/yellow]",
+        border_style="yellow",
+        box=box.ROUNDED,
+    ))
+    try:
+        answer = input("Approve? [y/N]: ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        return False
+    return answer in ("y", "yes")
 
 
 console = Console()
@@ -86,8 +106,26 @@ def run_interactive():
     ui.console.print("[dim]Chahlie will learn from every interaction![/dim]\n")
     
     ui.print_greeting()
-    
+
+    set_approval_hook(_approval_prompter)
     agent = ChahlieAgent()
+
+    # Show primer summary (one-liner) if we detected something useful
+    primer = agent.get_primer_summary()
+    if primer.get("primed"):
+        bits = []
+        if primer.get("language"):
+            bits.append(primer["language"])
+        if primer.get("framework"):
+            bits.append(primer["framework"])
+        if primer.get("branch"):
+            bits.append(f"@ {primer['branch']}")
+        if bits:
+            ui.console.print(f"[dim cyan]Project: {primer['name']} ({' / '.join(bits)})[/dim cyan]\n")
+
+    if agent.plugin_warnings:
+        for w in agent.plugin_warnings:
+            ui.console.print(f"[dim yellow]plugin: {w}[/dim yellow]")
     
     # Main loop
     while True:
@@ -245,35 +283,95 @@ def run_interactive():
                         else:
                             ui.console.print("[yellow]No learnings yet, kehd. Let's get to work![/yellow]\n")
                     continue
+                elif command == "/cost":
+                    c = agent.get_cost_summary()
+                    ui.console.print(Panel(
+                        f"[bold cyan]TOKEN / COST METER[/bold cyan]\n\n"
+                        f"Backend: [white]{c['backend']}[/white]\n"
+                        f"Model:   [white]{c['model']}[/white]\n"
+                        f"Input:   [white]{c['input_tokens']:,} tokens[/white]\n"
+                        f"Output:  [white]{c['output_tokens']:,} tokens[/white]\n"
+                        f"Est:     [green]${c['cost_usd']:.4f}[/green] this session\n",
+                        title="[green]COST[/green]", border_style="green", box=box.ROUNDED,
+                    ))
+                    continue
+                elif command == "/primer" or command == "/project":
+                    p = agent.get_primer_summary()
+                    if not p.get("primed"):
+                        ui.console.print("[yellow]No project context detected.[/yellow]\n")
+                        continue
+                    layout = "\n".join(f"  {row}" for row in (p.get("layout") or [])[:15])
+                    ui.console.print(Panel(
+                        f"[bold cyan]PROJECT PRIMER[/bold cyan]\n\n"
+                        f"Name: [white]{p.get('name')}[/white]\n"
+                        f"Path: [dim]{p.get('path')}[/dim]\n"
+                        f"Language:  [white]{p.get('language') or '(unknown)'}[/white]\n"
+                        f"Framework: [white]{p.get('framework') or '(none detected)'}[/white]\n"
+                        f"Branch:    [white]{p.get('branch') or '(no git)'}[/white]\n\n"
+                        f"[bold]Top-level:[/bold]\n{layout}",
+                        title="[green]PROJECT[/green]", border_style="green", box=box.ROUNDED,
+                    ))
+                    continue
+                elif command == "/plugins":
+                    if not agent.plugin_definitions and not agent.plugin_warnings:
+                        ui.console.print("[dim]No plugins loaded. Drop .py files in ~/.chahlie/plugins/[/dim]\n")
+                        continue
+                    names = ", ".join(d.get("name", "?") for d in agent.plugin_definitions) or "(none)"
+                    warns = "\n".join(f"  • {w}" for w in agent.plugin_warnings) or "  (none)"
+                    ui.console.print(Panel(
+                        f"[bold cyan]PLUGINS[/bold cyan]\n\n"
+                        f"Loaded tools: [white]{names}[/white]\n\n"
+                        f"[bold yellow]Warnings:[/bold yellow]\n{warns}",
+                        title="[green]PLUGINS[/green]", border_style="green", box=box.ROUNDED,
+                    ))
+                    continue
                 else:
                     ui.console.print(f"[dim]Unknown command: {command}. Type /help for commands.[/dim]\n")
                     continue
             
             # Process with agent
             ui.console.print()
-            
+
+            streaming_started = False
+
+            def _end_stream_if_needed():
+                nonlocal streaming_started
+                if streaming_started:
+                    ui.console.print()  # newline after the live-streamed text
+                    streaming_started = False
+
             for event in agent.process(user_input):
                 if event.type == "thinking":
+                    _end_stream_if_needed()
                     ui.print_thinking(event.content)
                 elif event.type == "text":
-                    ui.print_agent_message(event.content)
+                    if event.data and event.data.get("streaming"):
+                        if not streaming_started:
+                            ui.console.print("[bold green]Chahlie:[/bold green] ", end="")
+                            streaming_started = True
+                        ui.console.print(event.content, end="", highlight=False)
+                    else:
+                        _end_stream_if_needed()
+                        ui.print_agent_message(event.content)
                 elif event.type == "tool_use":
-                    ui.print_tool_use(
-                        event.data["tool"],
-                        event.data["input"]
-                    )
+                    _end_stream_if_needed()
+                    ui.print_tool_use(event.data["tool"], event.data["input"])
                 elif event.type == "tool_result":
+                    _end_stream_if_needed()
                     ui.print_tool_result(
-                        event.data["tool"],
-                        event.data["success"],
-                        event.data["output"],
-                        event.data.get("error")
+                        event.data["tool"], event.data["success"],
+                        event.data["output"], event.data.get("error"),
                     )
                 elif event.type == "reflection":
-                    # NEW - Show reflection events
+                    _end_stream_if_needed()
                     ui.console.print(f"[dim cyan]💡 {event.content}[/dim cyan]\n")
+                elif event.type == "cost":
+                    _end_stream_if_needed()
+                    ui.console.print(f"[dim]💰 {event.content}[/dim]\n")
                 elif event.type == "error":
+                    _end_stream_if_needed()
                     ui.print_error(event.content)
+            _end_stream_if_needed()
         
         except KeyboardInterrupt:
             ui.console.print("\n")
@@ -289,7 +387,12 @@ def run_interactive():
 @click.option("--backend", "-b", type=click.Choice(["ollama-cloud", "ollama-local", "anthropic"]), help="Backend to use")
 @click.option("--model", "-m", help="Model to use (for Ollama)")
 @click.option("--no-memory", is_flag=True, help="Disable memory system")
-def main(version: bool, about: bool, backend: str, model: str, no_memory: bool):
+@click.option("--no-stream", is_flag=True, help="Disable token streaming")
+@click.option("--no-approval", is_flag=True, help="Disable approval prompts for dangerous commands (NOT recommended)")
+@click.option("--llm-reflection", is_flag=True, help="Enable LLM-based reflection on failures")
+@click.option("--semantic-memory", is_flag=True, help="Enable semantic (embedding) memory retrieval")
+@click.option("--tui", is_flag=True, help="Launch the experimental Textual TUI instead of the classic CLI")
+def main(version, about, backend, model, no_memory, no_stream, no_approval, llm_reflection, semantic_memory, tui):
     """
     Chahlie - The Boston Coding Agent
     
@@ -311,17 +414,37 @@ def main(version: bool, about: bool, backend: str, model: str, no_memory: bool):
         ui.print_about()
         return
     
-    # Override backend/model if specified
+    # Override backend/model/flags if specified
     if backend:
         os.environ["CHAHLIE_BACKEND"] = backend
     if model:
         os.environ["OLLAMA_MODEL"] = model
-    
+    if no_stream:
+        os.environ["CHAHLIE_STREAMING"] = "false"
+    if no_approval:
+        os.environ["CHAHLIE_REQUIRE_APPROVAL"] = "false"
+    if llm_reflection:
+        os.environ["CHAHLIE_LLM_REFLECTION"] = "true"
+    if semantic_memory:
+        os.environ["CHAHLIE_SEMANTIC_MEMORY"] = "true"
+
     # Reload config
     from importlib import reload
     from . import config
     reload(config)
-    
+
+    if tui:
+        try:
+            from .tui import run_tui  # lazy import - Textual is optional
+        except ImportError:
+            ui.print_error(
+                "Textual isn't installed. Run:  pip install textual\n"
+                "Then try again with --tui."
+            )
+            sys.exit(1)
+        run_tui()
+        return
+
     run_interactive()
 
 

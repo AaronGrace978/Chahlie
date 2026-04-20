@@ -11,7 +11,7 @@
 [![Powered by Ollama](https://img.shields.io/badge/Powered%20by-Ollama%20Cloud-purple.svg)](https://ollama.com)
 [![Made with Cursor](https://img.shields.io/badge/Made%20with-Cursor-blue.svg)](https://cursor.com)
 
-*Version 2.1.0 "Check Ya Work"*
+*Version 2.2.0 "Big Dig"*
 
 ---
 
@@ -62,6 +62,24 @@ Chahlie now learns from every interaction, adapts to YOUR coding style, and cont
 
 Every Python file Chahlie writes is automatically syntax-checked and scanned for undefined names *before* he declares the task done. Syntax errors force a retry; undefined-name warnings are surfaced inline so he can fix typos like `weaknesses_counts` vs `weakness_counts` without you ever seeing them. No more shipping broken code.
 
+**NEW IN 2.2: THE BIG DIG!** 🏗️
+
+A full overhaul focused on speed, safety, and smarts. Chahlie now:
+
+- ⚡ **Streams** responses token-by-token so you see him thinking live
+- ✂️ **Edits files surgically** with `edit_file` instead of rewriting whole files
+- 🛑 **Blocks dangerous commands** (`rm -rf`, force-push, `DROP TABLE`, etc.) until you approve
+- 🧠 **Auto-primes the project** on startup (detects language/framework/layout so he doesn't ask "what is this repo?")
+- 💰 **Tracks tokens and est. cost** per session via `/cost`
+- 🗜️ **Compacts older history** automatically so long sessions don't blow the context window
+- 🔍 **Verifies JS/TS/Go/Rust/JSON/YAML** (not just Python) when toolchains are installed
+- 🧪 **Runs your tests** with `run_tests` (auto-detects pytest/npm/cargo/go)
+- 🤝 **Delegates exploration** to throwaway sub-agents that return clean summaries
+- 🧩 **Loads plugins** from `~/.chahlie/plugins/` to add your own tools
+- ↩️ **Snapshots + rolls back** file edits if a multi-file change fails halfway through
+- 🔮 **Semantic memory retrieval** (optional, `--semantic-memory`) - recalls relevant learnings by embedding similarity
+- 🖥️ **Experimental Textual TUI** (optional, `--tui`) with a scrollable log and live cost meter
+
 ## Features
 
 - 🤖 **Full Agentic Capabilities** - Read/write files, run commands, search code
@@ -75,7 +93,16 @@ Every Python file Chahlie writes is automatically syntax-checked and scanned for
 - 📊 **USER PROFILE** - Learns YOUR coding style and preferences
 - 💡 **SELF-REFLECTION** - Analyzes own performance and improves
 - 🔄 **ADAPTIVE PROMPTING** - Adjusts behavior based on learnings
-- ✅ **SELF-VERIFICATION** - Auto-checks every Python file for syntax errors and undefined names before declaring done
+- ✅ **SELF-VERIFICATION** - Auto-checks Python + JS/TS/Go/Rust/JSON/YAML before declaring done
+- ✂️ **SURGICAL EDITS** - `edit_file` replaces exact strings instead of rewriting entire files
+- 🛑 **APPROVAL MODE** - Dangerous commands require your explicit OK
+- ⚡ **STREAMING** - Live token-by-token responses
+- 🗜️ **AUTO-COMPACTION** - Old turns summarized on the fly to keep the context window sane
+- 💰 **COST METER** - Running token + dollar estimate per session (`/cost`)
+- 🤝 **SUB-AGENT DELEGATION** - Throwaway agents for exploration without context pollution
+- 🧩 **PLUGIN SYSTEM** - Drop Python files in `~/.chahlie/plugins/` to add your own tools
+- ↩️ **TRANSACTIONAL EDITS** - Snapshot + rollback for multi-file changes
+- 🖥️ **OPTIONAL TUI** - Launch with `--tui` for a Textual-powered terminal app
 
 ## Installation
 
@@ -129,6 +156,24 @@ python -m chahlie --no-memory
 | **🧠 `/profile`** | **View your learned coding profile** |
 | **🧠 `/reflect`** | **See Chahlie's self-reflection** |
 | **🧠 `/learnings`** | **View all learned patterns** |
+| **🏗️ `/cost`** | **Show token count and estimated session cost** |
+| **🏗️ `/primer`** | **Show the auto-detected project context** |
+| **🏗️ `/plugins`** | **List loaded plugins and any warnings** |
+
+### CLI flags (v2.2)
+
+```bash
+python -m chahlie --help
+
+  --no-stream          Disable token streaming
+  --no-approval        Disable approval prompts for dangerous commands
+  --llm-reflection     Enable LLM-based reflection on failures
+  --semantic-memory    Enable embedding-based memory retrieval
+  --tui                Launch the experimental Textual TUI
+```
+
+All of these also honor environment variables (`CHAHLIE_STREAMING`,
+`CHAHLIE_REQUIRE_APPROVAL`, `CHAHLIE_LLM_REFLECTION`, `CHAHLIE_SEMANTIC_MEMORY`).
 
 ## Example Session
 

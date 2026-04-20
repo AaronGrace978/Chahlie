@@ -9,6 +9,9 @@ shipping typos like `weaknesses_counts` or `import_imports`.
 
 import ast
 import builtins
+import json
+import shutil
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
@@ -208,10 +211,120 @@ def _check_undefined_names(tree: ast.AST) -> List[Issue]:
     return issues
 
 
-def verify_file(path: str) -> VerifyResult:
-    """Verify any supported file type. Currently only .py; extensible."""
+def _run_check(cmd: List[str], path: str, code: str) -> Optional[VerifyResult]:
+    """Run an external checker and translate its exit code into a VerifyResult.
+
+    Returns None if the toolchain isn't installed (so callers can fall back
+    silently instead of failing on missing tools).
+    """
+    if shutil.which(cmd[0]) is None:
+        return None
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
+    except Exception as e:
+        return VerifyResult(ok=True, path=path, issues=[Issue(
+            severity="warning", line=0, column=0, code="W-TOOLCHAIN",
+            message=f"{cmd[0]} check failed to run: {e}",
+        )])
+    if proc.returncode == 0:
+        return VerifyResult(ok=True, path=path, issues=[])
+    msg = (proc.stderr or proc.stdout or "failed").strip().splitlines()[:5]
+    return VerifyResult(
+        ok=False, path=path,
+        issues=[Issue(
+            severity="error", line=0, column=0, code=code,
+            message=" | ".join(msg)[:500],
+        )],
+    )
+
+
+def verify_json(path: str, content: Optional[str] = None) -> VerifyResult:
+    if content is None:
+        try:
+            content = Path(path).read_text(encoding="utf-8")
+        except Exception as e:
+            return VerifyResult(ok=False, path=path, issues=[
+                Issue("error", 0, 0, "E-READ", f"could not read file: {e}"),
+            ])
+    try:
+        json.loads(content)
+        return VerifyResult(ok=True, path=path, issues=[])
+    except json.JSONDecodeError as e:
+        return VerifyResult(ok=False, path=path, issues=[Issue(
+            severity="error", line=e.lineno, column=e.colno,
+            code="E-JSON", message=e.msg,
+        )])
+
+
+def verify_yaml(path: str, content: Optional[str] = None) -> VerifyResult:
+    # PyYAML is commonly available but not a hard dep - fail soft.
+    try:
+        import yaml  # type: ignore
+    except ImportError:
+        return VerifyResult(ok=True, path=path, issues=[])
+    if content is None:
+        try:
+            content = Path(path).read_text(encoding="utf-8")
+        except Exception as e:
+            return VerifyResult(ok=False, path=path, issues=[
+                Issue("error", 0, 0, "E-READ", f"could not read file: {e}"),
+            ])
+    try:
+        list(yaml.safe_load_all(content))
+        return VerifyResult(ok=True, path=path, issues=[])
+    except yaml.YAMLError as e:
+        mark = getattr(e, "problem_mark", None)
+        return VerifyResult(ok=False, path=path, issues=[Issue(
+            severity="error",
+            line=(mark.line + 1) if mark else 0,
+            column=(mark.column + 1) if mark else 0,
+            code="E-YAML",
+            message=str(getattr(e, "problem", e))[:300],
+        )])
+
+
+def verify_javascript(path: str) -> VerifyResult:
+    """`node --check` for JS, `tsc --noEmit` for TS when available."""
     p = Path(path)
-    if p.suffix == ".py":
-        return verify_python(path)
-    # Non-Python files: nothing to check (return clean)
-    return VerifyResult(ok=True, path=path, issues=[])
+    if p.suffix in (".js", ".mjs", ".cjs"):
+        res = _run_check(["node", "--check", str(p)], str(p), "E-JS")
+        return res or VerifyResult(ok=True, path=str(p), issues=[])
+    if p.suffix in (".ts", ".tsx"):
+        res = _run_check(["tsc", "--noEmit", str(p)], str(p), "E-TS")
+        return res or VerifyResult(ok=True, path=str(p), issues=[])
+    return VerifyResult(ok=True, path=str(p), issues=[])
+
+
+def verify_go(path: str) -> VerifyResult:
+    res = _run_check(["gofmt", "-e", "-l", str(path)], str(path), "E-GO")
+    return res or VerifyResult(ok=True, path=str(path), issues=[])
+
+
+def verify_rust(path: str) -> VerifyResult:
+    # `rustc --edition 2021 --emit=metadata -o -` is cleanest but assumes a
+    # lib context; for a standalone file we just do a parse-style check via
+    # rustc's --emit=dep-info which short-circuits on syntax errors.
+    res = _run_check(
+        ["rustc", "--edition", "2021", "--emit=dep-info", "--out-dir", "/tmp", str(path)],
+        str(path), "E-RUST",
+    )
+    return res or VerifyResult(ok=True, path=str(path), issues=[])
+
+
+def verify_file(path: str) -> VerifyResult:
+    """Dispatch by extension. Returns clean result for unknown types."""
+    p = Path(path)
+    ext = p.suffix.lower()
+    if ext == ".py":
+        return verify_python(str(p))
+    if ext in (".json",):
+        return verify_json(str(p))
+    if ext in (".yaml", ".yml"):
+        return verify_yaml(str(p))
+    if ext in (".js", ".mjs", ".cjs", ".ts", ".tsx"):
+        return verify_javascript(str(p))
+    if ext == ".go":
+        return verify_go(str(p))
+    if ext == ".rs":
+        return verify_rust(str(p))
+    return VerifyResult(ok=True, path=str(p), issues=[])
