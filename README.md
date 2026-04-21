@@ -11,7 +11,7 @@
 [![Powered by Ollama](https://img.shields.io/badge/Powered%20by-Ollama%20Cloud-purple.svg)](https://ollama.com)
 [![Made with Cursor](https://img.shields.io/badge/Made%20with-Cursor-blue.svg)](https://cursor.com)
 
-*Version 2.3.0 "Southie Sharp"*
+*Version 2.3.1 "Southie Sharp"*
 
 ---
 
@@ -83,6 +83,15 @@ Another sixteen enhancements focused on sharp feedback and safer edits:
 - 🔁 **Test-failure auto-analysis** - when `run_tests` fails, a sub-agent drops a one-paragraph root-cause analysis into the output
 - 🏷️ **Banner version fix** - no more "v1.0.0 Green Monstah" five versions later
 
+**NEW IN 2.3.1: SPEED PATCH!** ⚡
+
+- 🗜️ **History trimming** - old tool outputs get clamped so long sessions stop bloating every turn
+- 💬 **Social fast-path** - hype / banter messages skip the heavy coding context and answer faster
+- ✂️ **Shorter chatter** - casual replies are capped so Chahlie doesn't monologue about a donut muffin
+- ⏱️ **Better heartbeat** - "still working..." now counts up correctly while a slow model is thinking
+- ☁️ **Cloud/local model split** - `OLLAMA_CLOUD_MODEL` and `OLLAMA_LOCAL_MODEL` are configured separately
+- 🧠 **Kimi K2.6 cloud default** - Ollama Cloud now defaults to `kimi-k2.6:cloud`
+
 **NEW IN 2.2: THE BIG DIG!** 🏗️
 
 A full overhaul focused on speed, safety, and smarts. Chahlie now:
@@ -135,6 +144,8 @@ A full overhaul focused on speed, safety, and smarts. Chahlie now:
 - 🎨 **SYNTAX-HIGHLIGHTED reads** - Colorized `read_file` output
 - 🎯 **MODEL ROUTER** - Optional small model for trivial chat
 - 🔁 **TEST-FAILURE ANALYSIS** - Sub-agent root-causes failing tests inline
+- 💬 **SOCIAL FAST-PATH** - Banter skips the heavy coding path for snappier replies
+- ⏱️ **HEARTBEAT + TIMING** - Better "still working..." feedback plus optional perf timings
 
 ## Installation
 
@@ -196,7 +207,7 @@ python -m chahlie --no-memory
 | **🦈 `/switch <name>`** | **Restore a saved conversation branch** |
 | **🦈 `/branches`** | **List saved conversation branches** |
 
-### CLI flags (v2.2)
+### CLI flags (v2.3)
 
 ```bash
 python -m chahlie --help
@@ -447,14 +458,14 @@ Chahlie supports multiple AI backends:
 ```bash
 CHAHLIE_BACKEND=ollama-cloud
 OLLAMA_API_KEY=your-key-here  # Get from https://ollama.com/settings/keys
-OLLAMA_MODEL=glm-5.1
+OLLAMA_CLOUD_MODEL=kimi-k2.6:cloud
 ```
 
 #### 2. Local Ollama
 ```bash
 CHAHLIE_BACKEND=ollama-local
 OLLAMA_HOST=http://localhost:11434
-OLLAMA_MODEL=qwen3:8b
+OLLAMA_LOCAL_MODEL=qwen3:8b
 ```
 
 #### 3. Anthropic Claude
@@ -467,7 +478,8 @@ ANTHROPIC_API_KEY=your-key-here
 
 | Model | Description | Best For |
 |-------|-------------|----------|
-| `glm-5.1` | **SOTA for agentic engineering** - SWE-Bench Pro leader | Default choice |
+| `kimi-k2.6:cloud` | 256K context, long-horizon coding, tools + vision | Default choice |
+| `glm-5.1` | **SOTA for agentic engineering** - SWE-Bench Pro leader | Agentic coding |
 | `qwen3.5` | Multimodal powerhouse (6.3M pulls) - vision + tools | General coding |
 | `devstral-small-2` | 24B model, excels at multi-file editing | Large codebases |
 | `gemma4` | Frontier performance from Google - vision + tools | Reasoning |
@@ -475,6 +487,22 @@ ANTHROPIC_API_KEY=your-key-here
 | `minimax-m2.7` | Latest for coding & agentic workflows | Productivity |
 
 See all models at [ollama.com/search?c=cloud](https://ollama.com/search?c=cloud)
+
+### Performance knobs
+
+```bash
+# Optional fast small-talk router
+CHAHLIE_SMALL_MODEL=qwen3.5
+
+# Social / banter speed path
+CHAHLIE_SOCIAL_FAST_PATH=true
+CHAHLIE_SOCIAL_MAX_INPUT_CHARS=140
+CHAHLIE_SOCIAL_MAX_REPLY_LINES=4
+CHAHLIE_SOCIAL_MAX_REPLY_CHARS=320
+
+# Perf debugging
+CHAHLIE_DEBUG_TIMING=false
+```
 
 ## Tech Stack
 
