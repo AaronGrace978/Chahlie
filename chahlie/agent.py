@@ -41,6 +41,9 @@ from .config import (
     OLLAMA_REQUEST_TIMEOUT,
     SOCIAL_FAST_PATH, SOCIAL_MAX_INPUT_CHARS, SOCIAL_HISTORY_MESSAGES,
     SOCIAL_MAX_REPLY_LINES, SOCIAL_MAX_REPLY_CHARS, SOCIAL_MAX_TOKENS,
+    PERSISTENT_VECTOR_STORE,
+    TOT_PLANNING, TOT_MIN_TASK_CHARS, TOT_CANDIDATES, TOT_MODEL,
+    FALLBACK_MODELS,
 )
 import time
 import threading
@@ -265,10 +268,11 @@ _EXPLAIN_TURN_RE = re.compile(
 from .personality import SYSTEM_PROMPT, get_working, get_success
 from .tools import TOOL_DEFINITIONS, execute_tool, register_plugin_dispatch
 from .memory import ChahlieMemory, ReflectionEngine, PatternLearner
-from .memory.semantic import SemanticMemory
+from .memory.semantic import SemanticMemory, get_semantic_store
 from .context_manager import CostMeter, compact_history, estimate_messages_chars
 from .project_primer import prime_project, render_primer_prompt
 from .plugins import load_plugins
+from .planner import plan_task, should_plan
 
 
 @dataclass
@@ -351,13 +355,19 @@ class ChahlieAgent:
             self.pattern_learner = None
 
         # --- Semantic memory (optional) ---
+        # Prefers ChromaDB-backed persistent store if `chromadb` is installed
+        # and CHAHLIE_PERSISTENT_VECTORS=true, else falls back to the in-memory
+        # SemanticMemory. Seeding runs in a daemon thread either way.
         self.semantic: Optional[SemanticMemory] = None
         if SEMANTIC_MEMORY and self.enable_memory and hasattr(self, "client") and self.backend != "anthropic":
             try:
-                self.semantic = SemanticMemory(self.client, EMBEDDING_MODEL)
-                # Seed in a daemon thread - embedding every past learning
-                # can take several seconds on cold-cache embedding models,
-                # and we don't want that blocking the first prompt.
+                project_root = self.memory.project_path if self.memory else None
+                self.semantic = get_semantic_store(
+                    self.client,
+                    EMBEDDING_MODEL,
+                    project_root,
+                    prefer_persistent=PERSISTENT_VECTOR_STORE,
+                )
                 threading.Thread(
                     target=self._seed_semantic_memory, daemon=True,
                 ).start()
@@ -500,6 +510,51 @@ class ChahlieAgent:
         if not SMALL_MODEL or self.backend == "anthropic":
             return self.model
         return SMALL_MODEL if self._is_social_turn(user_message) else self.model
+
+    def _models_to_try(self, primary: str) -> list[str]:
+        """Return the model chain to try for this turn: primary first, then
+        any configured fallbacks. Anthropic path ignores fallbacks - that
+        backend uses a single Claude model."""
+        if self.backend == "anthropic" or not FALLBACK_MODELS:
+            return [primary]
+        seen = {primary}
+        chain = [primary]
+        for m in FALLBACK_MODELS:
+            if m and m not in seen:
+                chain.append(m)
+                seen.add(m)
+        return chain
+
+    def _maybe_plan_task(self, user_message: str, routed_model: str) -> Optional[str]:
+        """Run Tree-of-Thoughts planning if enabled and the task qualifies.
+
+        Returns a preamble string to prepend to the system prompt, or None
+        to skip planning for this turn.
+        """
+        if not TOT_PLANNING or self.backend == "anthropic":
+            return None
+        if self._is_social_turn(user_message):
+            return None
+        if not should_plan(user_message, min_chars=TOT_MIN_TASK_CHARS):
+            return None
+
+        planner_model = TOT_MODEL or routed_model
+
+        def _chat(messages, model=None):
+            return self._call_ollama(messages, stream=False, model=model or planner_model, tools=[])
+
+        try:
+            plan = plan_task(
+                user_message,
+                _chat,
+                model=planner_model,
+                candidates=TOT_CANDIDATES,
+            )
+        except Exception:
+            return None
+        if plan is None:
+            return None
+        return plan.as_preamble()
 
     # -----------------------------------------------------------------
     # session branching
@@ -792,7 +847,8 @@ class ChahlieAgent:
     def _pick_reply(self, pool_name: str) -> str:
         """Pick a reply from a named pool, avoiding an immediate repeat."""
         pool = _REPLY_POOLS.get(pool_name) or _REPLY_POOLS["generic"]
-        candidates = [line for line in pool if line != self._last_social_reply]
+        last = getattr(self, "_last_social_reply", "")
+        candidates = [line for line in pool if line != last]
         if not candidates:
             candidates = pool
         choice = random.choice(candidates)
@@ -1112,6 +1168,24 @@ class ChahlieAgent:
         routed_model = self._select_model(user_message)
         ollama_tools = [] if social_mode else None
 
+        # Tree-of-Thoughts planning (opt-in). Runs BEFORE the main tool
+        # loop so the planned approach can steer every subsequent tool
+        # call. Short-circuits cleanly for social/trivial turns.
+        plan_preamble = self._maybe_plan_task(user_message, routed_model)
+        if plan_preamble:
+            first_line = plan_preamble.splitlines()[1] if "\n" in plan_preamble else plan_preamble
+            yield AgentEvent(
+                type="thinking",
+                content=f"(ToT plan locked in - {first_line.strip()})",
+            )
+            system_prompt = plan_preamble + "\n\n" + system_prompt
+
+        # Model chain for transient-failure fallback. Primary first, then
+        # any CHAHLIE_FALLBACK_MODELS entries. Single-entry list when no
+        # fallbacks configured -> zero behavior change for existing users.
+        model_chain = self._models_to_try(routed_model)
+        current_model_idx = 0
+
         # Text already emitted in PRIOR iterations of this turn's tool loop.
         # Used to strip the "Chahlie restates everything" preamble bug where
         # the model repeats its earlier message before each new tool call.
@@ -1137,9 +1211,13 @@ class ChahlieAgent:
             last_error: Optional[Exception] = None
             # Retry transient cloud wobbles (503/502/504/timeouts) with
             # exponential backoff. Real requests like "open chrome" should
-            # not die on a single blip.
+            # not die on a single blip. When retries on the current model
+            # are exhausted with a transient error AND we haven't started
+            # streaming text yet, we advance to the next model in
+            # `model_chain` and start fresh.
             max_attempts = 3
             backoff = 1.5
+            active_model = model_chain[current_model_idx]
             for attempt in range(1, max_attempts + 1):
                 final_payload = None
                 streamed_text = ""
@@ -1164,7 +1242,7 @@ class ChahlieAgent:
                 dedup_active = bool(dedup_target)
                 try:
                     for chunk in self._call_ollama(
-                        messages, stream=use_stream, model=routed_model, tools=ollama_tools,
+                        messages, stream=use_stream, model=active_model, tools=ollama_tools,
                     ):
                         heartbeat.tickle()  # first byte -> stop the heartbeat
                         if chunk.get("stream_delta"):
@@ -1232,6 +1310,26 @@ class ChahlieAgent:
                         content=f"(cloud hiccup, retryin' in {wait_s:.1f}s... try {attempt + 1}/{max_attempts})",
                     )
                     time.sleep(wait_s)
+
+            # --- Multi-model fallback ---
+            # Current model exhausted its retries with a transient error
+            # and we never streamed any visible text. Try the next model
+            # in the chain (if any) before giving up on this turn.
+            if (
+                last_error is not None
+                and not streamed_text
+                and self._is_transient_ollama_error(last_error)
+                and current_model_idx + 1 < len(model_chain)
+            ):
+                current_model_idx += 1
+                next_model = model_chain[current_model_idx]
+                yield AgentEvent(
+                    type="thinking",
+                    content=f"(primary model flaked - swappin' to backup: {next_model})",
+                )
+                # Reset attempt state and re-enter the outer while-loop
+                # iteration so we retry with the new model from scratch.
+                continue
 
             if last_error is not None:
                 if social_mode and self._is_transient_ollama_error(last_error):

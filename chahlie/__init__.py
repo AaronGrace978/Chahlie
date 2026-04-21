@@ -7,5 +7,5 @@ Created with love for the Boston dev community.
 NOW WITH MEMORY, SELF-IMPROVEMENT, AND SELF-VERIFICATION!
 """
 
-__version__ = "2.3.2"
-__codename__ = "Speed Pass"
+__version__ = "2.4.0"
+__codename__ = "Juice Box"

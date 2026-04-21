@@ -2,6 +2,71 @@
 
 All notable changes to Chahlie will be documented in this file.
 
+## [2.4.0] "Juice Box" - 2026-04-21
+
+Three juicy upgrades that land as opt-in features so nothing changes for
+existing users until they flip a flag. Every new code path has a clean
+no-op fallback.
+
+### Added
+
+- **Persistent vector store** (`chahlie/memory/semantic.py`) - semantic
+  memory can now be backed by ChromaDB, stored under
+  `<project>/.chahlie/vector_store/`. Embeddings survive restarts so cold
+  starts stop re-embedding every learning + session summary. New
+  `PersistentSemanticMemory` class + `get_semantic_store()` factory that
+  falls back to the in-process `SemanticMemory` when `chromadb` isn't
+  importable. Toggle with `CHAHLIE_PERSISTENT_VECTORS` (default `true`;
+  harmless when chromadb is missing).
+
+- **Tree-of-Thoughts planner** (`chahlie/planner.py`) - new standalone
+  module. For qualifying tasks (>= `CHAHLIE_TOT_MIN_TASK_CHARS` and
+  matching keywords like "build", "refactor", "implement"), generates
+  `CHAHLIE_TOT_CANDIDATES` distinct approaches in ONE cheap LLM call,
+  then picks the best in a second call. Winner gets prepended to the
+  system prompt as a `[Planned approach]` preamble so the main tool
+  loop starts with direction. Default OFF (`CHAHLIE_TOT_PLANNING=false`)
+  - flip it on when you want Chahlie to think before leaping. Cost: 2
+  small LLM calls per qualifying turn.
+
+- **Multi-model fallback chain** - `CHAHLIE_FALLBACK_MODELS` is a
+  comma-separated list of Ollama models to try in order when the
+  primary model exhausts its retries with a transient error and
+  hasn't streamed any visible text yet. Example:
+  `CHAHLIE_FALLBACK_MODELS=glm-5.1,devstral-small-2`. Anthropic backend
+  ignores this (single-model by design). Empty list (default) = zero
+  behavior change.
+
+### Changed
+
+- `ChahlieAgent.__init__` now constructs semantic memory through
+  `get_semantic_store()` so the persistent vs. in-memory decision is
+  centralized. The old `SemanticMemory` class is untouched and still
+  the default when chromadb isn't available.
+- Retry loop in `_process_ollama` now advances through `model_chain`
+  on transient failure instead of bailing out immediately.
+
+### Tests
+
+- `test_v24_juice.py` - 15 new tests covering:
+  - in-memory semantic store add/search/empty-rejection
+  - factory fallback when project_root is None or chromadb is missing
+  - full persistent round-trip (runs when chromadb is installed)
+  - `should_plan()` heuristic (keyword triggers + length gates)
+  - `plan_task()` end-to-end with scripted chat (candidate parsing,
+    winner selection, garbage-judgment recovery, empty-generation)
+  - `_models_to_try()` (empty chain, dedupe, Anthropic ignore)
+  - `_maybe_plan_task()` gating (feature-off, social turns)
+- `test_v232_speed_pass.py::test_version` loosened to `>= 2.3.2` so
+  minor version bumps stop tripping the regression gate.
+- **Full suite: 73/73 green.**
+
+### Dependencies
+
+- `chromadb>=0.5.0` added to `requirements.txt` as an OPTIONAL dep.
+  Chahlie silently degrades to in-memory semantic storage when it's
+  missing, so no existing install will break.
+
 ## [2.3.1] "Southie Sharp" (perf patch) - 2026-04-20
 
 Follow-up to 2.3.0 targeting response latency. Observed symptom: token

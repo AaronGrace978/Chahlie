@@ -24,8 +24,12 @@ def _agent() -> ChahlieAgent:
 
 
 def test_version():
-    assert chahlie.__version__ == "2.3.2", chahlie.__version__
-    assert "Speed Pass" in chahlie.__codename__
+    # This file guards the 2.3.2 feature set; any release >= 2.3.2 must
+    # still carry those features. We only assert the lower bound here so
+    # minor bumps (2.4, 2.5, ...) don't require hand-editing.
+    parts = chahlie.__version__.split(".")
+    major, minor, patch = (int(p) for p in parts[:3])
+    assert (major, minor, patch) >= (2, 3, 2), chahlie.__version__
     print("  version:", chahlie.__version__, "-", chahlie.__codename__)
 
 

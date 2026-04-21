@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Chahlie Toolbox - Functions You Can Ask For</title>
+<style>
+  :root {
+    --navy:    #0C2340;
+    --red:     #BD3039;
+    --green:   #1E5631;
+    --green-2: #2ECC71;
+    --orange:  #F39C12;
+    --bg:      #0b1220;
+    --bg-card: #141c2e;
+    --bg-card-2: #1b2540;
+    --text:    #e8edf7;
+    --muted:   #8ea0bd;
+    --border:  #2a3552;
+    --accent:  #45d16e;
+    --mono:    "SF Mono", "JetBrains Mono", Menlo, Consolas, "Courier New", monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(160deg, var(--bg) 0%, #0e1832 100%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    padding: 36px 24px 20px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(135deg, var(--navy) 0%, #0e2a52 100%);
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(800px 200px at 20% 0%, rgba(189,48,57,0.15), transparent 60%),
+      radial-gradient(900px 300px at 80% 120%, rgba(30,86,49,0.25), transparent 60%);
+    pointer-events: none;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; position: relative; }
+  .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .brand h1 {
+    margin: 0;
+    font-size: 34px;
+    letter-spacing: -0.5px;
+    background: linear-gradient(90deg, #fff 0%, var(--accent) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .brand .tag {
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .brand .pill {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(69, 209, 110, 0.12);
+    color: var(--accent);
+    border: 1px solid rgba(69, 209, 110, 0.35);
+  }
+  .subtitle {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 15px;
+    max-width: 780px;
+    line-height: 1.55;
+  }
+  .controls {
+    margin-top: 22px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .search {
+    flex: 1 1 320px;
+    min-width: 240px;
+    position: relative;
+  }
+  .search input {
+    width: 100%;
+    padding: 12px 14px 12px 40px;
+    background: rgba(11, 18, 32, 0.6);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .search input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(69, 209, 110, 0.15);
+  }
+  .search::before {
+    content: "";
+    position: absolute;
+    left: 14px; top: 50%;
+    width: 16px; height: 16px;
+    transform: translateY(-50%);
+    background: var(--muted);
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><path d='m20 20-3.5-3.5'/></svg>") no-repeat center / contain;
+    mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><path d='m20 20-3.5-3.5'/></svg>") no-repeat center / contain;
+  }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+  .filter-btn {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .filter-btn:hover {
+    color: var(--text);
+    border-color: var(--accent);
+  }
+  .filter-btn.active {
+    background: var(--accent);
+    color: var(--navy);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  .count {
+    color: var(--muted);
+    font-size: 13px;
+    margin-left: auto;
+    font-family: var(--mono);
+  }
+  main {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 28px 24px 80px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 18px 4px;
+    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+    display: flex;
+    flex-direction: column;
+  }
+  .card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 32px rgba(0,0,0,0.35);
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+  .card-name {
+    font-family: var(--mono);
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--accent);
+    cursor: pointer;
+    user-select: all;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .card-name .copy-hint {
+    font-size: 11px;
+    color: var(--muted);
+    opacity: 0;
+    transition: opacity 0.15s;
+    font-family: inherit;
+    font-weight: 400;
+    white-space: nowrap;
+  }
+  .card-name:hover .copy-hint { opacity: 1; }
+  .card-name.copied .copy-hint { opacity: 1; color: var(--accent); }
+  .category {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    padding: 3px 9px;
+    border-radius: 6px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .cat-file     { background: rgba(69, 209, 110, 0.15); color: var(--accent); }
+  .cat-search   { background: rgba(243, 156, 18, 0.15); color: var(--orange); }
+  .cat-git      { background: rgba(189, 48, 57, 0.18);  color: #ff6b75; }
+  .cat-web      { background: rgba(100, 170, 255, 0.18); color: #7cb7ff; }
+  .cat-code     { background: rgba(155, 89, 182, 0.18); color: #c088e6; }
+  .cat-system   { background: rgba(150, 150, 150, 0.18); color: #c8c8c8; }
+  .cat-agent    { background: rgba(255, 200, 87, 0.18); color: #ffdb84; }
+  .card-desc {
+    color: var(--text);
+    opacity: 0.85;
+    font-size: 13.5px;
+    line-height: 1.55;
+    margin: 6px 0 12px;
+  }
+  details.params {
+    border-top: 1px solid var(--border);
+    padding: 10px 0;
+    margin-top: auto;
+  }
+  details.params summary {
+    cursor: pointer;
+    font-size: 12.5px;
+    color: var(--muted);
+    font-family: var(--mono);
+    list-style: none;
+    user-select: none;
+    padding: 2px 0;
+  }
+  details.params summary::-webkit-details-marker { display: none; }
+  details.params summary::before {
+    content: "▸";
+    display: inline-block;
+    margin-right: 8px;
+    transition: transform 0.15s;
+  }
+  details.params[open] summary::before { transform: rotate(90deg); }
+  .no-params {
+    font-style: italic;
+    color: var(--muted);
+    font-size: 12.5px;
+    padding: 8px 0;
+    border-top: 1px solid var(--border);
+    margin-top: auto;
+  }
+  .param {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    gap: 8px 10px;
+    align-items: baseline;
+    padding: 8px 0;
+    border-top: 1px dashed rgba(255,255,255,0.05);
+    font-size: 13px;
+  }
+  .param:first-of-type { border-top: none; }
+  .pname {
+    font-family: var(--mono);
+    font-weight: 600;
+    color: var(--text);
+  }
+  .ptype {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    padding: 1px 6px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 4px;
+    justify-self: start;
+  }
+  .req {
+    color: var(--red);
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .pdesc {
+    grid-column: 1 / -1;
+    color: var(--muted);
+    font-size: 12.5px;
+    line-height: 1.5;
+    padding-left: 2px;
+  }
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+    font-size: 15px;
+  }
+  footer {
+    margin-top: 40px;
+    padding: 20px 24px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 12.5px;
+    border-top: 1px solid var(--border);
+  }
+  footer .sep { margin: 0 8px; opacity: 0.4; }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="brand">
+      <h1>Chahlie Toolbox</h1>
+      <span class="pill" id="version-pill">v2.4.0 · Juice Box</span>
+      <span class="tag">Every function you can ask Chahlie to run.</span>
+    </div>
+    <p class="subtitle">
+      Click any tool name to copy it. Filter by category or search by name / description.
+      Tools are how Chahlie actually <em>does</em> stuff (reading files, running commands,
+      searching the web). You don't call them yourself &mdash; you just ask in plain
+      English and Chahlie picks the right one.
+    </p>
+    <div class="controls">
+      <div class="search">
+        <input id="q" type="text" placeholder="Search tools... (e.g. 'git', 'write', 'search')" autocomplete="off" />
+      </div>
+      <div class="filters" id="filters"></div>
+      <span class="count" id="count">0 tools</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="grid" id="grid"></div>
+  <div class="empty-state" id="empty" style="display:none;">No tools match that search, kehd.</div>
+</main>
+
+<footer>
+  Chahlie &mdash; The Boston Coding Agent
+  <span class="sep">·</span>
+  Official product of Cursor Boston
+  <span class="sep">·</span>
+  <a href="https://github.com/AaronGrace978/Chahlie" target="_blank" rel="noopener">GitHub</a>
+</footer>
+
+<script>
+/* Tool definitions - mirrored from chahlie/tools.py TOOL_DEFINITIONS.
+   If you add a new tool in Python, drop its schema in here too and this
+   page picks it up immediately. */
+const TOOLS = [
+  {"name":"read_file","description":"Read the contents of a file. Use this to understand code before making changes.","input_schema":{"type":"object","properties":{"path":{"type":"string","description":"The path to the file to read"}},"required":["path"]}},
+  {"name":"write_file","description":"Write content to a file. Creates the file if it doesn't exist, overwrites if it does.","input_schema":{"type":"object","properties":{"path":{"type":"string","description":"The path to the file to write"},"content":{"type":"string","description":"The content to write to the file"}},"required":["path","content"]}},
+  {"name":"list_directory","description":"List files and directories in a path. Use to explore the codebase structure.","input_schema":{"type":"object","properties":{"path":{"type":"string","description":"The directory path to list (defaults to current directory)"}},"required":[]}},
+  {"name":"search_files","description":"Search for files matching a glob pattern.","input_schema":{"type":"object","properties":{"pattern":{"type":"string","description":"Glob pattern to match files (e.g., '**/*.py', 'src/**/*.js')"},"directory":{"type":"string","description":"Directory to search in (defaults to current directory)"}},"required":["pattern"]}},
+  {"name":"search_content","description":"Search for text content within files. Like grep but friendlier.","input_schema":{"type":"object","properties":{"query":{"type":"string","description":"The text to search for"},"path":{"type":"string","description":"File or directory to search in"},"file_pattern":{"type":"string","description":"Optional glob pattern to filter files (e.g., '*.py')"}},"required":["query"]}},
+  {"name":"run_command","description":"Run a shell command. Use for git, npm, pip, tests, etc.","input_schema":{"type":"object","properties":{"command":{"type":"string","description":"The command to run"},"working_directory":{"type":"string","description":"Directory to run the command in"}},"required":["command"]}},
+  {"name":"create_directory","description":"Create a new directory (and parent directories if needed).","input_schema":{"type":"object","properties":{"path":{"type":"string","description":"The directory path to create"}},"required":["path"]}},
+  {"name":"open_browser","description":"Open a URL in the user's default web browser.","input_schema":{"type":"object","properties":{"url":{"type":"string","description":"The URL to open (e.g., 'https://google.com')"}},"required":["url"]}},
+  {"name":"web_search","description":"Search the web using Google. Opens the search results in the browser.","input_schema":{"type":"object","properties":{"query":{"type":"string","description":"The search query"}},"required":["query"]}},
+  {"name":"verify_code","description":"Run static checks on a file (syntax + undefined names for Python; syntax for JS/TS/Go/Rust/JSON/YAML when toolchain is available). Use this after writing code to catch typos BEFORE declaring done.","input_schema":{"type":"object","properties":{"path":{"type":"string","description":"Path to the file to verify"}},"required":["path"]}},
+  {"name":"edit_file","description":"Make a surgical edit to an existing file by replacing one exact string with another. MUCH cheaper than rewriting the whole file and less error-prone. `old_string` must appear EXACTLY ONCE in the file (include enough context to make it unique). Python files are auto-verified after edit, same as write_file.","input_schema":{"type":"object","properties":{"path":{"type":"string","description":"Path to the file"},"old_string":{"type":"string","description":"Exact text to replace (must appear exactly once)"},"new_string":{"type":"string","description":"Replacement text"}},"required":["path","old_string","new_string"]}},
+  {"name":"delegate","description":"Spawn a short-lived sub-agent to handle an exploration/search task without polluting your main context. Use for 'find all X', 'summarize directory Y', etc. The sub-agent has NO memory and returns one synthesized answer. Don't delegate your core implementation work.","input_schema":{"type":"object","properties":{"task":{"type":"string","description":"A self-contained task description for the sub-agent."}},"required":["task"]}},
+  {"name":"run_tests","description":"Auto-detect and run the project's test suite (pytest / npm test / cargo test / go test). Use after making code changes to confirm nothing broke semantically (syntax-level checks won't catch logic bugs). On failure, a sub-agent auto-analyzes the output and appends a short diagnosis.","input_schema":{"type":"object","properties":{"path":{"type":"string","description":"Optional: specific test file/dir to run"}},"required":[]}},
+  {"name":"open_file","description":"Open a file in the user's default OS application (Notepad/TextEdit/xdg-open). Use when the user says 'open that file' or 'show me X in my editor' - NOT for reading contents (use read_file for that).","input_schema":{"type":"object","properties":{"path":{"type":"string","description":"Path to file or folder to open"}},"required":["path"]}},
+  {"name":"git_status","description":"Show git status in the current project (branch + dirty files). Structured and fast.","input_schema":{"type":"object","properties":{},"required":[]}},
+  {"name":"git_diff","description":"Show the git diff for the working tree (unstaged + staged), or for a specific path if given. Output is truncated to the most recent 8KB.","input_schema":{"type":"object","properties":{"path":{"type":"string","description":"Optional path to limit the diff"},"staged":{"type":"boolean","description":"Show staged diff (--cached)"}},"required":[]}},
+  {"name":"git_log","description":"Show the last N commits on the current branch (oneline format).","input_schema":{"type":"object","properties":{"limit":{"type":"integer","description":"How many commits to show (default 10, max 50)"}},"required":[]}},
+  {"name":"lint_code","description":"Run the real linter/type-checker for the project when available: ruff + mypy for Python, eslint for JS/TS. Gives richer feedback than the built-in verify_code - use this as the final quality gate.","input_schema":{"type":"object","properties":{"path":{"type":"string","description":"File or directory to lint (default: .)"}},"required":[]}},
+  {"name":"watch_file","description":"Watch a file or poll a URL until a pattern appears or a timeout hits. Use for tailing logs, waiting on CI, watching a long-running process.","input_schema":{"type":"object","properties":{"target":{"type":"string","description":"Path to a file OR http(s):// URL"},"pattern":{"type":"string","description":"Regex to match; returns when found"},"timeout_s":{"type":"integer","description":"Max seconds to wait (default 30, max 300)"}},"required":["target","pattern"]}}
+];
+
+/* Category assignment - purely presentational, done here so tools.py
+   stays focused on the agent contract. */
+const CATEGORIES = {
+  read_file:      "file",
+  write_file:     "file",
+  edit_file:      "file",
+  list_directory: "file",
+  create_directory: "file",
+  open_file:      "file",
+  search_files:   "search",
+  search_content: "search",
+  git_status:     "git",
+  git_diff:       "git",
+  git_log:        "git",
+  open_browser:   "web",
+  web_search:     "web",
+  verify_code:    "code",
+  lint_code:      "code",
+  run_tests:      "code",
+  run_command:    "system",
+  watch_file:     "system",
+  delegate:       "agent",
+};
+
+const CATEGORY_LABELS = {
+  all:    "All",
+  file:   "Files",
+  search: "Search",
+  git:    "Git",
+  web:    "Web",
+  code:   "Code quality",
+  system: "System",
+  agent:  "Agent",
+};
+
+let activeCategory = "all";
+let searchTerm = "";
+
+function renderFilters() {
+  const bar = document.getElementById("filters");
+  const counts = { all: TOOLS.length };
+  for (const t of TOOLS) {
+    const cat = CATEGORIES[t.name] || "system";
+    counts[cat] = (counts[cat] || 0) + 1;
+  }
+  const order = ["all", "file", "search", "code", "git", "web", "system", "agent"];
+  bar.innerHTML = order
+    .filter((k) => k === "all" || counts[k])
+    .map((k) => `<button class="filter-btn ${k === activeCategory ? "active" : ""}" data-cat="${k}">${CATEGORY_LABELS[k]} <span style="opacity:.6">${counts[k] || 0}</span></button>`)
+    .join("");
+  bar.querySelectorAll(".filter-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      activeCategory = btn.dataset.cat;
+      renderFilters();
+      renderGrid();
+    });
+  });
+}
+
+function renderGrid() {
+  const grid = document.getElementById("grid");
+  const empty = document.getElementById("empty");
+  const q = searchTerm.toLowerCase().trim();
+  const visible = TOOLS.filter((t) => {
+    const cat = CATEGORIES[t.name] || "system";
+    if (activeCategory !== "all" && cat !== activeCategory) return false;
+    if (!q) return true;
+    return (
+      t.name.toLowerCase().includes(q) ||
+      t.description.toLowerCase().includes(q)
+    );
+  });
+  document.getElementById("count").textContent =
+    visible.length === TOOLS.length
+      ? `${TOOLS.length} tools`
+      : `${visible.length} / ${TOOLS.length} tools`;
+
+  if (visible.length === 0) {
+    grid.innerHTML = "";
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+  grid.innerHTML = visible.map(cardHTML).join("");
+  grid.querySelectorAll(".card-name").forEach((el) => {
+    el.addEventListener("click", () => copyName(el));
+  });
+}
+
+function cardHTML(t) {
+  const cat = CATEGORIES[t.name] || "system";
+  const props = t.input_schema?.properties || {};
+  const required = new Set(t.input_schema?.required || []);
+  const paramKeys = Object.keys(props);
+  const paramBlock = paramKeys.length === 0
+    ? `<div class="no-params">No arguments &mdash; just ask.</div>`
+    : `<details class="params">
+         <summary>${paramKeys.length} argument${paramKeys.length === 1 ? "" : "s"}</summary>
+         ${paramKeys.map((k) => paramHTML(k, props[k], required.has(k))).join("")}
+       </details>`;
+  return `
+    <div class="card" data-cat="${cat}">
+      <div class="card-head">
+        <span class="card-name" title="Click to copy">${escapeHTML(t.name)}<span class="copy-hint">click to copy</span></span>
+        <span class="category cat-${cat}">${cat}</span>
+      </div>
+      <div class="card-desc">${escapeHTML(t.description)}</div>
+      ${paramBlock}
+    </div>
+  `;
+}
+
+function paramHTML(name, schema, isRequired) {
+  const type = schema?.type || "any";
+  const desc = schema?.description || "";
+  return `
+    <div class="param">
+      <span class="pname">${escapeHTML(name)}</span>
+      <span class="ptype">${escapeHTML(type)}</span>
+      ${isRequired ? `<span class="req">REQUIRED</span>` : `<span></span>`}
+      ${desc ? `<span class="pdesc">${escapeHTML(desc)}</span>` : ""}
+    </div>
+  `;
+}
+
+function escapeHTML(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function copyName(el) {
+  const name = el.childNodes[0].nodeValue.trim();
+  navigator.clipboard?.writeText(name).then(
+    () => {
+      el.classList.add("copied");
+      const hint = el.querySelector(".copy-hint");
+      if (hint) hint.textContent = "copied!";
+      setTimeout(() => {
+        el.classList.remove("copied");
+        if (hint) hint.textContent = "click to copy";
+      }, 1200);
+    },
+    () => { /* clipboard blocked, no-op */ }
+  );
+}
+
+document.getElementById("q").addEventListener("input", (e) => {
+  searchTerm = e.target.value;
+  renderGrid();
+});
+
+/* Keyboard: "/" focuses search */
+document.addEventListener("keydown", (e) => {
+  if (e.key === "/" && document.activeElement.tagName !== "INPUT") {
+    e.preventDefault();
+    document.getElementById("q").focus();
+  }
+});
+
+renderFilters();
+renderGrid();
+</script>
+</body>
+</html>

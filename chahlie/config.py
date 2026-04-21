@@ -135,6 +135,32 @@ SYNTAX_HIGHLIGHT = os.getenv("CHAHLIE_SYNTAX_HIGHLIGHT", "true").lower() in ("1"
 # Directory Chahlie scans for user-provided tool extensions on startup.
 PLUGINS_DIR = os.getenv("CHAHLIE_PLUGINS_DIR", str(os.path.expanduser("~/.chahlie/plugins")))
 
+# --- Persistent vector store (ChromaDB) ---
+# When True AND `chromadb` is installed, semantic memory is persisted to
+# .chahlie/vector_store/ in the project root. Survives restarts, so cold
+# starts don't have to re-embed every learning + session summary.
+# Falls back to in-process SemanticMemory if chromadb isn't importable.
+PERSISTENT_VECTOR_STORE = os.getenv("CHAHLIE_PERSISTENT_VECTORS", "true").lower() in ("1", "true", "yes")
+
+# --- Tree-of-Thoughts planning ---
+# For non-trivial tasks, generate N candidate approaches in one cheap LLM call,
+# score them, and prepend the winner to the system prompt as [Planned approach].
+# Default OFF: it's 2 extra LLM calls per qualifying turn.
+TOT_PLANNING = os.getenv("CHAHLIE_TOT_PLANNING", "false").lower() in ("1", "true", "yes")
+TOT_MIN_TASK_CHARS = int(os.getenv("CHAHLIE_TOT_MIN_TASK_CHARS", "140"))
+TOT_CANDIDATES = int(os.getenv("CHAHLIE_TOT_CANDIDATES", "3"))
+# Optional override for the planner's model. Empty -> use the turn's routed
+# model. Set to a small/fast model (e.g. qwen3.5:cloud) for cheap planning.
+TOT_MODEL = os.getenv("CHAHLIE_TOT_MODEL", "").strip() or None
+
+# --- Multi-model fallback chain ---
+# Comma-separated list of Ollama model names to try in order if the primary
+# model errors out with a transient failure AFTER exhausting its retries.
+# Example: CHAHLIE_FALLBACK_MODELS=glm-5.1,devstral-small-2
+# Applies to ollama-cloud and ollama-local backends only (Anthropic ignored).
+_fallback_raw = os.getenv("CHAHLIE_FALLBACK_MODELS", "").strip()
+FALLBACK_MODELS: list[str] = [m.strip() for m in _fallback_raw.split(",") if m.strip()]
+
 # UI Theme - Fenway Green
 THEME = {
     "primary": "#0C2340",      # Navy Blue
