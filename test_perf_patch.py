@@ -11,6 +11,9 @@ Covers:
 - Social fast-path detects banter and ignores command-like requests
 - Social history trims out tool chatter and only keeps recent conversation
 - Social reply clamp limits line count / chars
+- Ultra-short social turns can be answered locally with no model call
+- Env-var queries are recognized and answered locally
+- Social turns have a local fallback for transient Ollama outages
 """
 
 from __future__ import annotations
@@ -29,6 +32,7 @@ os.environ["CHAHLIE_HISTORY_TOOL_CHAR_CAP"] = "200"
 from importlib import reload
 import chahlie.config as _cfg; reload(_cfg)
 import chahlie.agent as _agent; reload(_agent)
+import chahlie.__main__ as _main; reload(_main)
 
 from chahlie.agent import _Heartbeat, ChahlieAgent
 
@@ -184,6 +188,57 @@ def test_social_reply_clamp():
     check("truncation removes extra fifth line", "line five" not in out, detail=out)
 
 
+def test_local_social_short_circuit_detection():
+    print("\n[local social short-circuit]")
+    a = _fake_agent()
+    check("sup bro answered locally", a._should_answer_social_locally("sup bro"))
+    check("<3 answered locally", a._should_answer_social_locally("<3"))
+    check("sleepy chatter answered locally", a._should_answer_social_locally("Zzzz"))
+    check("thanks answered locally", a._should_answer_social_locally("thanks buddy"))
+    check("longer social prompt not forced local", not a._should_answer_social_locally("yo buddy tell me how you're feeling today in detail"))
+
+
+def test_local_social_reply_content():
+    print("\n[local social reply content]")
+    a = _fake_agent()
+    check("status reply is short and friendly", "wicked good" in a._social_local_reply("sup bro").lower())
+    check("heart reply mirrors affection", "<3" in a._social_local_reply("<3"))
+    check("sleepy reply mentions rest", "z" in a._social_local_reply("Zzzz").lower() or "catch some" in a._social_local_reply("Zzzz").lower())
+
+
+def test_env_query_detection():
+    print("\n[env query detection]")
+    check("bare env var detected", _main._extract_env_query("CHAHLIE_SMALL_MODEL") == "CHAHLIE_SMALL_MODEL")
+    check("natural-language env query detected", _main._extract_env_query("what is OLLAMA_CLOUD_MODEL?") == "OLLAMA_CLOUD_MODEL")
+    check("non-env text ignored", _main._extract_env_query("how we doing bud") is None)
+
+
+def test_env_help_lookup():
+    print("\n[env help lookup]")
+    info = _main._env_help("CHAHLIE_SMALL_MODEL")
+    check("known env var returns help", isinstance(info, dict) and "faster/smaller model" in info["what"].lower())
+    check("unknown env var returns none", _main._env_help("CHAHLIE_FAKE_NOT_REAL") is None)
+
+
+def test_transient_ollama_error_detection():
+    print("\n[transient ollama error detection]")
+    a = _fake_agent()
+    check("503 recognized as transient", a._is_transient_ollama_error("Service Temporarily Unavailable (status code: 503)"))
+    check("timeout recognized as transient", a._is_transient_ollama_error("Gateway timeout while contacting Ollama"))
+    check("syntax error not treated as transient", not a._is_transient_ollama_error("invalid syntax in Python file"))
+
+
+def test_social_fallback_reply():
+    print("\n[social fallback reply]")
+    a = _fake_agent()
+    heart = a._social_fallback_reply("<3")
+    sleepy = a._social_fallback_reply("ZzzzZzzz")
+    status = a._social_fallback_reply("How we doing bud")
+    check("heart fallback is warm", "<3" in heart or "right back" in heart.lower(), detail=heart)
+    check("sleepy fallback mentions rest", ("z" in sleepy.lower()) or ("sleep" in sleepy.lower()) or ("catch some" in sleepy.lower()), detail=sleepy)
+    check("status fallback mentions cloud hiccup", "cloud" in status.lower(), detail=status)
+
+
 def main():
     for fn in (
         test_trim_ollama_tool,
@@ -195,6 +250,12 @@ def main():
         test_social_detection,
         test_social_history_slice,
         test_social_reply_clamp,
+        test_local_social_short_circuit_detection,
+        test_local_social_reply_content,
+        test_env_query_detection,
+        test_env_help_lookup,
+        test_transient_ollama_error_detection,
+        test_social_fallback_reply,
     ):
         try:
             fn()

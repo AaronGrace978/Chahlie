@@ -116,6 +116,11 @@ DEBUG_TIMING = os.getenv("CHAHLIE_DEBUG_TIMING", "false").lower() in ("1", "true
 # Seconds between heartbeat "still working..." events while waiting on an LLM.
 HEARTBEAT_SECONDS = int(os.getenv("CHAHLIE_HEARTBEAT_SECONDS", "6"))
 
+# HTTP request timeout for Ollama Cloud / local Ollama calls. Keeps us from
+# hanging 30-60s on a wobbly cloud; instead we bail fast and our retry loop
+# can handle the hiccup. If you have a slow local model, bump this.
+OLLAMA_REQUEST_TIMEOUT = float(os.getenv("CHAHLIE_OLLAMA_TIMEOUT", "25"))
+
 # --- Tool call dedupe ---
 # Cache read-only tool calls within a single agent turn so repeated calls
 # return the same result instead of re-executing. Always-on; set to False

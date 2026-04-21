@@ -7,5 +7,5 @@ Created with love for the Boston dev community.
 NOW WITH MEMORY, SELF-IMPROVEMENT, AND SELF-VERIFICATION!
 """
 
-__version__ = "2.3.1"
-__codename__ = "Southie Sharp"
+__version__ = "2.3.2"
+__codename__ = "Speed Pass"

@@ -317,6 +317,71 @@ def print_agent_message(message: str):
     console.print()
 
 
+class StreamingAgentPanel:
+    """Live-updating Rich panel for streaming agent replies.
+
+    Renders as markdown inside the CHAHLIE panel and grows as new tokens
+    arrive, so you get nice bold/bullets/code while keeping the streaming
+    feel. Use as a context manager, or call `start()` / `feed()` / `close()`
+    explicitly.
+    """
+
+    def __init__(self):
+        self.buffer: str = ""
+        self._live = None
+        self._active = False
+
+    def _render(self):
+        body = Markdown(self.buffer) if self.buffer else Text("", style="dim")
+        return Panel(
+            body,
+            title="[green]CHAHLIE[/green]",
+            border_style="green",
+            box=box.ROUNDED,
+        )
+
+    def start(self):
+        if self._active:
+            return
+        self._live = Live(
+            self._render(),
+            console=console,
+            refresh_per_second=12,
+            transient=False,
+        )
+        self._live.__enter__()
+        self._active = True
+
+    def feed(self, text: str):
+        if not text:
+            return
+        if not self._active:
+            self.start()
+        self.buffer += text
+        self._live.update(self._render())
+
+    def close(self):
+        if not self._active:
+            return
+        try:
+            self._live.update(self._render())
+            self._live.__exit__(None, None, None)
+        except Exception:
+            pass
+        finally:
+            self._live = None
+            self._active = False
+            console.print()
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+        return False
+
+
 def print_tool_use(tool_name: str, tool_input: dict):
     """Print tool use information"""
     # Create a clean display of the tool call

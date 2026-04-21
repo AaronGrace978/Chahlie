@@ -4,6 +4,8 @@ Entry point for running as a module: python -m chahlie
 NOW WITH MEMORY AND SELF-IMPROVEMENT!
 """
 
+import os
+import re
 import sys
 import click
 
@@ -16,6 +18,8 @@ from .config import (
     BACKEND, ANTHROPIC_API_KEY,
     OLLAMA_CLOUD_HOST, OLLAMA_CLOUD_API_KEY, OLLAMA_LOCAL_HOST,
     OLLAMA_CLOUD_MODEL, OLLAMA_LOCAL_MODEL,
+    SMALL_MODEL, SOCIAL_FAST_PATH, SOCIAL_MAX_REPLY_LINES,
+    SOCIAL_MAX_REPLY_CHARS,
 )
 from .tools import set_approval_hook
 from . import ui
@@ -41,6 +45,110 @@ def _approval_prompter(command: str, reason: str) -> bool:
 
 
 console = Console()
+
+
+_ENV_QUERY_RE = re.compile(r"\b(?:CHAHLIE|OLLAMA|ANTHROPIC)_[A-Z0-9_]+\b")
+
+
+def _mask_secret(value: str) -> str:
+    """Avoid printing raw API keys back to the terminal."""
+    if not value:
+        return "(not set)"
+    if len(value) <= 8:
+        return "*" * len(value)
+    return value[:4] + "..." + value[-4:]
+
+
+def _env_help(name: str) -> dict | None:
+    """Return local help text for well-known env vars.
+
+    This lets Chahlie answer `CHAHLIE_SMALL_MODEL` instantly instead of
+    burning a network roundtrip and maybe falling over on a flaky cloud call.
+    """
+    help_map = {
+        "CHAHLIE_SMALL_MODEL": {
+            "current": SMALL_MODEL or "(not set)",
+            "what": "Optional faster/smaller model for trivial chat and banter.",
+            "why": (
+                "Set this if you want 'how we doing bud' / hype chatter to avoid "
+                "the heavyweight coding model."
+            ),
+            "set": "CHAHLIE_SMALL_MODEL=qwen3.5",
+        },
+        "OLLAMA_CLOUD_MODEL": {
+            "current": OLLAMA_CLOUD_MODEL,
+            "what": "Main Ollama Cloud model used for real coding turns.",
+            "why": "This is your heavyweight coding brain when BACKEND=ollama-cloud.",
+            "set": "OLLAMA_CLOUD_MODEL=kimi-k2.6:cloud",
+        },
+        "OLLAMA_LOCAL_MODEL": {
+            "current": OLLAMA_LOCAL_MODEL,
+            "what": "Main local Ollama model used when BACKEND=ollama-local.",
+            "why": "Keeps local runs separate from cloud-only model slugs like :cloud.",
+            "set": "OLLAMA_LOCAL_MODEL=qwen3:8b",
+        },
+        "CHAHLIE_BACKEND": {
+            "current": BACKEND,
+            "what": "Which provider Chahlie talks to.",
+            "why": "Controls whether Chahlie uses Ollama Cloud, local Ollama, or Anthropic.",
+            "set": "CHAHLIE_BACKEND=ollama-cloud",
+        },
+        "OLLAMA_API_KEY": {
+            "current": _mask_secret(OLLAMA_CLOUD_API_KEY or ""),
+            "what": "Ollama Cloud API key.",
+            "why": "Required for BACKEND=ollama-cloud.",
+            "set": "OLLAMA_API_KEY=your-key-here",
+        },
+        "CHAHLIE_SOCIAL_FAST_PATH": {
+            "current": str(SOCIAL_FAST_PATH).lower(),
+            "what": "Turns on the lightweight no-tools path for obvious banter/social turns.",
+            "why": "Makes small-talk responses cheaper and faster.",
+            "set": "CHAHLIE_SOCIAL_FAST_PATH=true",
+        },
+        "CHAHLIE_SOCIAL_MAX_REPLY_LINES": {
+            "current": str(SOCIAL_MAX_REPLY_LINES),
+            "what": "Maximum lines Chahlie should use for casual/social replies.",
+            "why": "Stops it from monologuing on tiny non-coding turns.",
+            "set": "CHAHLIE_SOCIAL_MAX_REPLY_LINES=4",
+        },
+        "CHAHLIE_SOCIAL_MAX_REPLY_CHARS": {
+            "current": str(SOCIAL_MAX_REPLY_CHARS),
+            "what": "Maximum characters for casual/social replies.",
+            "why": "Keeps banter punchy instead of rambling.",
+            "set": "CHAHLIE_SOCIAL_MAX_REPLY_CHARS=320",
+        },
+    }
+    return help_map.get(name)
+
+
+def _extract_env_query(text: str) -> str | None:
+    """Pull a likely env-var query out of user input."""
+    matches = _ENV_QUERY_RE.findall((text or "").strip().upper())
+    if len(matches) != 1:
+        return None
+    return matches[0]
+
+
+def _handle_env_query(user_input: str) -> bool:
+    """Return True if we printed a direct env-var explanation."""
+    name = _extract_env_query(user_input)
+    if not name:
+        return False
+    info = _env_help(name)
+    if not info:
+        return False
+
+    ui.console.print(Panel(
+        f"[bold cyan]{name}[/bold cyan]\n\n"
+        f"[white]Current:[/white] {info['current']}\n"
+        f"[white]What it is:[/white] {info['what']}\n"
+        f"[white]Why you care:[/white] {info['why']}\n"
+        f"[white]Set it like this:[/white] [dim]{info['set']}[/dim]\n",
+        title="[green]CONFIG[/green]",
+        border_style="green",
+        box=box.ROUNDED,
+    ))
+    return True
 
 
 def check_backend():
@@ -134,6 +242,12 @@ def run_interactive():
             user_input = ui.print_user_prompt()
             
             if not user_input.strip():
+                continue
+
+            # Instant answer for config/env-var questions like
+            # `CHAHLIE_SMALL_MODEL` or `what is OLLAMA_CLOUD_MODEL`.
+            if _handle_env_query(user_input):
+                ui.console.print()
                 continue
             
             # Handle commands
@@ -376,13 +490,10 @@ def run_interactive():
             # Process with agent
             ui.console.print()
 
-            streaming_started = False
+            stream_panel = ui.StreamingAgentPanel()
 
             def _end_stream_if_needed():
-                nonlocal streaming_started
-                if streaming_started:
-                    ui.console.print()  # newline after the live-streamed text
-                    streaming_started = False
+                stream_panel.close()
 
             for event in agent.process(user_input):
                 if event.type == "thinking":
@@ -390,10 +501,7 @@ def run_interactive():
                     ui.print_thinking(event.content)
                 elif event.type == "text":
                     if event.data and event.data.get("streaming"):
-                        if not streaming_started:
-                            ui.console.print("[bold green]Chahlie:[/bold green] ", end="")
-                            streaming_started = True
-                        ui.console.print(event.content, end="", highlight=False)
+                        stream_panel.feed(event.content)
                     else:
                         _end_stream_if_needed()
                         ui.print_agent_message(event.content)
