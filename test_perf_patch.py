@@ -5,8 +5,12 @@ Covers:
 - _trim_stale_tool_results clamps old Ollama tool messages
 - _trim_stale_tool_results clamps Anthropic tool_result blocks
 - _Heartbeat fires and can be stopped
+- _Heartbeat reports cumulative elapsed time
 - System prompt cache is used once per turn, not per tool iteration
 - HISTORY_TOOL_CHAR_CAP=0 disables trimming
+- Social fast-path detects banter and ignores command-like requests
+- Social history trims out tool chatter and only keeps recent conversation
+- Social reply clamp limits line count / chars
 """
 
 from __future__ import annotations
@@ -103,10 +107,12 @@ def test_heartbeat_fires_then_stops():
     ticks = []
     hb = _Heartbeat(interval_s=1, on_tick=lambda e: ticks.append(e))
     hb.start()
-    time.sleep(2.3)
+    time.sleep(3.3)
     hb.stop()
     time.sleep(1.2)
     check("at least one tick fired", len(ticks) >= 1, detail=f"ticks={ticks}")
+    check("ticks increase cumulatively", ticks == sorted(ticks) and len(set(ticks)) == len(ticks), detail=f"ticks={ticks}")
+    check("later tick is > first tick", len(ticks) < 2 or ticks[-1] > ticks[0], detail=f"ticks={ticks}")
     count_after_stop = len(ticks)
     time.sleep(1.5)
     check("no ticks after stop", len(ticks) == count_after_stop)
@@ -134,6 +140,50 @@ def test_heartbeat_short_task_no_tick():
     check("no tick before interval", len(ticks) == 0)
 
 
+def test_social_detection():
+    print("\n[social detection]")
+    a = _fake_agent()
+    check("hype/banter is social", a._is_social_turn("YOOOOOO lets go buddy"))
+    check("gift/snack banter is social", a._is_social_turn("here take this donut muffin"))
+    check("command-like request is NOT social", not a._is_social_turn("open notepad and write me a note"))
+    check("coding request is NOT social", not a._is_social_turn("can you fix the failing tests"))
+
+
+def test_social_history_slice():
+    print("\n[social history slice]")
+    a = _fake_agent()
+    a.conversation_history = [
+        {"role": "user", "content": "old 1"},
+        {"role": "assistant", "content": "old 2"},
+        {"role": "tool", "content": "very noisy tool output"},
+        {"role": "assistant", "content": [{"type": "text", "text": "recent assistant"}]},
+        {"role": "user", "content": [{"type": "tool_result", "content": "tool result should be skipped"}]},
+        {"role": "user", "content": "recent user"},
+    ]
+    tail = a._history_for_turn(social_mode=True)
+    check("tool role skipped", all(msg["role"] != "tool" for msg in tail), detail=str(tail))
+    check("assistant text blocks flattened", any(msg["content"] == "recent assistant" for msg in tail), detail=str(tail))
+    check("tool_result-only user block skipped", all("tool result" not in msg["content"] for msg in tail), detail=str(tail))
+    check("recent user retained", tail[-1]["content"] == "recent user", detail=str(tail))
+
+
+def test_social_reply_clamp():
+    print("\n[social reply clamp]")
+    a = _fake_agent()
+    text = "\n".join([
+        "line one is kinda long and keeps going for dramatic effect",
+        "line two is here",
+        "line three is here",
+        "line four is here",
+        "line five should be cut",
+    ])
+    out = a._shorten_social_reply(text)
+    lines = [ln for ln in out.splitlines() if ln.strip()]
+    check("reply limited to configured line cap", len(lines) <= 4, detail=out)
+    check("reply limited to configured char cap", len(out) <= 320, detail=str(len(out)))
+    check("truncation removes extra fifth line", "line five" not in out, detail=out)
+
+
 def main():
     for fn in (
         test_trim_ollama_tool,
@@ -142,6 +192,9 @@ def main():
         test_heartbeat_fires_then_stops,
         test_heartbeat_tickle_suppresses,
         test_heartbeat_short_task_no_tick,
+        test_social_detection,
+        test_social_history_slice,
+        test_social_reply_clamp,
     ):
         try:
             fn()

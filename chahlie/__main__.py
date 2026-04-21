@@ -14,7 +14,8 @@ from rich import box
 from .agent import ChahlieAgent, AgentEvent
 from .config import (
     BACKEND, ANTHROPIC_API_KEY,
-    OLLAMA_CLOUD_HOST, OLLAMA_CLOUD_API_KEY, OLLAMA_LOCAL_HOST, OLLAMA_MODEL,
+    OLLAMA_CLOUD_HOST, OLLAMA_CLOUD_API_KEY, OLLAMA_LOCAL_HOST,
+    OLLAMA_CLOUD_MODEL, OLLAMA_LOCAL_MODEL,
 )
 from .tools import set_approval_hook
 from . import ui
@@ -75,7 +76,7 @@ def check_backend():
                 "Make sure Ollama is running:\n"
                 "  ollama serve\n\n"
                 "And pull a model:\n"
-                f"  ollama pull {OLLAMA_MODEL}\n\n"
+                f"  ollama pull {OLLAMA_LOCAL_MODEL}\n\n"
                 "Or switch to Ollama Cloud:\n"
                 "  CHAHLIE_BACKEND=ollama-cloud"
             )
@@ -95,9 +96,9 @@ def run_interactive():
     
     # Show which backend we're using
     if BACKEND == "ollama-cloud":
-        ui.console.print(f"[dim]☁️ Using Ollama Cloud: {OLLAMA_MODEL}[/dim]\n")
+        ui.console.print(f"[dim]☁️ Using Ollama Cloud: {OLLAMA_CLOUD_MODEL}[/dim]\n")
     elif BACKEND == "ollama-local":
-        ui.console.print(f"[dim]🦙 Using Local Ollama: {OLLAMA_MODEL}[/dim]\n")
+        ui.console.print(f"[dim]🦙 Using Local Ollama: {OLLAMA_LOCAL_MODEL}[/dim]\n")
     else:
         ui.console.print(f"[dim]🤖 Using Anthropic Claude[/dim]\n")
     
@@ -174,9 +175,9 @@ def run_interactive():
                     continue
                 elif command == "/model":
                     if BACKEND == "ollama-cloud":
-                        ui.console.print(f"[cyan]Model:[/cyan] {OLLAMA_MODEL} (Ollama Cloud)\n")
+                        ui.console.print(f"[cyan]Model:[/cyan] {OLLAMA_CLOUD_MODEL} (Ollama Cloud)\n")
                     elif BACKEND == "ollama-local":
-                        ui.console.print(f"[cyan]Model:[/cyan] {OLLAMA_MODEL} (Local Ollama)\n")
+                        ui.console.print(f"[cyan]Model:[/cyan] {OLLAMA_LOCAL_MODEL} (Local Ollama)\n")
                     else:
                         ui.console.print(f"[cyan]Model:[/cyan] Claude (Anthropic)\n")
                     continue
@@ -462,7 +463,10 @@ def main(version, about, backend, model, no_memory, no_stream, no_approval, llm_
     if backend:
         os.environ["CHAHLIE_BACKEND"] = backend
     if model:
-        os.environ["OLLAMA_MODEL"] = model
+        if (backend or BACKEND) == "ollama-local":
+            os.environ["OLLAMA_LOCAL_MODEL"] = model
+        else:
+            os.environ["OLLAMA_CLOUD_MODEL"] = model
     if no_stream:
         os.environ["CHAHLIE_STREAMING"] = "false"
     if no_approval:

@@ -18,15 +18,28 @@ OLLAMA_CLOUD_HOST = "https://ollama.com"  # Official Ollama Cloud API
 
 # Available Ollama Cloud Models (as of April 2026):
 # Top picks for agentic coding:
-# - glm-5.1        (SOTA for agentic engineering, SWE-Bench Pro leader)
+# - kimi-k2.6:cloud (256K context, long-horizon coding, tools, vision)
+# - glm-5.1         (SOTA for agentic engineering, SWE-Bench Pro leader)
 # - qwen3.5        (6.3M pulls - multimodal, thinking, tools)
 # - devstral-small-2 (24B - excels at multi-file editing)
 # - gemma4         (3.3M pulls - frontier performance, vision+tools)
 # - deepseek-v3.2  (efficient reasoning + agent performance)
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "glm-5.1")
+#
+# Backwards compatibility:
+# - OLLAMA_MODEL still works as a shared override for both cloud and local.
+# - OLLAMA_CLOUD_MODEL / OLLAMA_LOCAL_MODEL can now be set independently.
+_legacy_ollama_model = os.getenv("OLLAMA_MODEL", "").strip() or None
+OLLAMA_CLOUD_MODEL = os.getenv(
+    "OLLAMA_CLOUD_MODEL",
+    _legacy_ollama_model or "kimi-k2.6:cloud",
+)
 
 # Local Ollama Configuration (for self-hosted)
 OLLAMA_LOCAL_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_LOCAL_MODEL = os.getenv(
+    "OLLAMA_LOCAL_MODEL",
+    _legacy_ollama_model or "qwen3:8b",
+)
 
 # Anthropic Configuration (legacy)
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
@@ -79,6 +92,17 @@ COST_RATES = {
 SMALL_MODEL = os.getenv("CHAHLIE_SMALL_MODEL", "").strip() or None
 # Max user message length (chars) to consider routing to the small model.
 ROUTER_MAX_TRIVIAL_CHARS = int(os.getenv("CHAHLIE_ROUTER_MAX_TRIVIAL_CHARS", "80"))
+
+# --- Social fast-path ---
+# Short banter / hype / gratitude messages do not need the full coding prompt,
+# tool menu, project primer, or long conversation history. This fast-path keeps
+# those turns snappy and caps the reply length.
+SOCIAL_FAST_PATH = os.getenv("CHAHLIE_SOCIAL_FAST_PATH", "true").lower() in ("1", "true", "yes")
+SOCIAL_MAX_INPUT_CHARS = int(os.getenv("CHAHLIE_SOCIAL_MAX_INPUT_CHARS", "140"))
+SOCIAL_HISTORY_MESSAGES = int(os.getenv("CHAHLIE_SOCIAL_HISTORY_MESSAGES", "4"))
+SOCIAL_MAX_REPLY_LINES = int(os.getenv("CHAHLIE_SOCIAL_MAX_REPLY_LINES", "4"))
+SOCIAL_MAX_REPLY_CHARS = int(os.getenv("CHAHLIE_SOCIAL_MAX_REPLY_CHARS", "320"))
+SOCIAL_MAX_TOKENS = int(os.getenv("CHAHLIE_SOCIAL_MAX_TOKENS", "160"))
 
 # --- History tool-output trimming ---
 # Full tool output goes into history for exactly ONE follow-up call (so the

@@ -221,9 +221,10 @@ Chahlie supports multiple AI backends. Configure in your [yellow].env[/yellow] f
    Best for: Cloud-hosted models, no GPU required
    [dim]CHAHLIE_BACKEND=ollama-cloud
    OLLAMA_API_KEY=your-key-here
-   OLLAMA_MODEL=glm-5.1[/dim]
+   OLLAMA_CLOUD_MODEL=kimi-k2.6:cloud[/dim]
    
    Top Models:
+   • kimi-k2.6:cloud - 256K context, long-horizon coding, tools, vision
    • glm-5.1 - SOTA for agentic engineering
    • qwen3.5 - Multimodal powerhouse
    • devstral-small-2 - Multi-file editing expert
@@ -235,7 +236,7 @@ Chahlie supports multiple AI backends. Configure in your [yellow].env[/yellow] f
    Best for: Privacy, offline use, local GPU
    [dim]CHAHLIE_BACKEND=ollama-local
    OLLAMA_HOST=http://localhost:11434
-   OLLAMA_MODEL=qwen3:8b[/dim]
+   OLLAMA_LOCAL_MODEL=qwen3:8b[/dim]
    
    Install: [link]https://ollama.com/download[/link]
 

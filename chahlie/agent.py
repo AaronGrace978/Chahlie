@@ -26,7 +26,8 @@ import re
 from .config import (
     BACKEND,
     ANTHROPIC_API_KEY, ANTHROPIC_MODEL,
-    OLLAMA_CLOUD_HOST, OLLAMA_CLOUD_API_KEY, OLLAMA_LOCAL_HOST, OLLAMA_MODEL,
+    OLLAMA_CLOUD_HOST, OLLAMA_CLOUD_API_KEY, OLLAMA_LOCAL_HOST,
+    OLLAMA_CLOUD_MODEL, OLLAMA_LOCAL_MODEL,
     MAX_TOKENS,
     STREAMING,
     COMPACT_THRESHOLD_CHARS, COMPACT_PRESERVE_RECENT,
@@ -36,6 +37,8 @@ from .config import (
     SMALL_MODEL, ROUTER_MAX_TRIVIAL_CHARS,
     TOOL_DEDUPE,
     HISTORY_TOOL_CHAR_CAP, DEBUG_TIMING, HEARTBEAT_SECONDS,
+    SOCIAL_FAST_PATH, SOCIAL_MAX_INPUT_CHARS, SOCIAL_HISTORY_MESSAGES,
+    SOCIAL_MAX_REPLY_LINES, SOCIAL_MAX_REPLY_CHARS, SOCIAL_MAX_TOKENS,
 )
 import time
 import threading
@@ -53,6 +56,21 @@ _TRIVIAL_PATTERNS = [
     re.compile(r"^(what'?s up|wud up|whats good|how'?s it going)", re.I),
     re.compile(r"^(bye|later|peace|gn|good night|good morning)\b", re.I),
 ]
+_SOCIAL_PATTERNS = _TRIVIAL_PATTERNS + [
+    re.compile(r"\b(let'?s go+|lfg|wooo+|yooo+|legend|my boy|buddy|bud|bro|dude|love you)\b", re.I),
+    re.compile(r"\b(take this|have a|grab a|here'?s a)\b", re.I),
+    re.compile(r"\b(donut|muffin|cookie|coffee|beer|snack|pizza)\b", re.I),
+]
+_CODING_KEYWORDS = {
+    "code", "coding", "bug", "fix", "debug", "implement", "build", "feature",
+    "refactor", "test", "tests", "readme", "changelog", "commit", "push",
+    "pr", "git", "file", "folder", "directory", "notepad", "terminal",
+    "shell", "command", "run", "tool", "open", "write", "edit", "read",
+    "python", "javascript", "typescript", "rust", "java", "class",
+    "function", "method", "api", "server", "database", "sql", "npm", "pip",
+    "lint", "mypy", "ruff", "eslint", "error", "stacktrace", "traceback",
+    "repo", "branch", "merge", "undo", "watch_file",
+}
 from .personality import SYSTEM_PROMPT, get_working, get_success
 from .tools import TOOL_DEFINITIONS, execute_tool, register_plugin_dispatch
 from .memory import ChahlieMemory, ReflectionEngine, PatternLearner
@@ -83,12 +101,14 @@ class _Heartbeat:
         self._ticked = False
         self._stopped = False
         self._thread: Optional[threading.Thread] = None
-        self._start_time = 0.0
+        self._started_at = 0.0
+        self._last_bucket = 0
 
     def start(self) -> None:
         if self.interval <= 0:
             return
-        self._start_time = time.time()
+        self._started_at = time.time()
+        self._last_bucket = 0
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
 
@@ -102,16 +122,17 @@ class _Heartbeat:
     def _run(self) -> None:
         try:
             while not self._stopped:
-                time.sleep(min(1.0, self.interval))
+                time.sleep(min(0.25, self.interval))
                 if self._stopped or self._ticked:
                     return
-                elapsed = int(time.time() - self._start_time)
-                if elapsed >= self.interval:
+                elapsed = int(time.time() - self._started_at)
+                bucket = elapsed // self.interval
+                if bucket > self._last_bucket:
                     try:
                         self.on_tick(elapsed)
                     except Exception:
                         pass
-                    self._start_time = time.time()
+                    self._last_bucket = bucket
         except Exception:
             pass
 
@@ -188,11 +209,11 @@ class ChahlieAgent:
                 host=OLLAMA_CLOUD_HOST,
                 headers={'Authorization': f'Bearer {OLLAMA_CLOUD_API_KEY}'},
             )
-            self.model = OLLAMA_MODEL
+            self.model = OLLAMA_CLOUD_MODEL
         else:  # ollama-local
             from ollama import Client
             self.client = Client(host=OLLAMA_LOCAL_HOST)
-            self.model = OLLAMA_MODEL
+            self.model = OLLAMA_LOCAL_MODEL
 
     # -----------------------------------------------------------------
     # history hygiene
@@ -271,13 +292,7 @@ class ChahlieAgent:
         SMALL_MODEL for short trivial chat when configured."""
         if not SMALL_MODEL or self.backend == "anthropic":
             return self.model
-        text = (user_message or "").strip()
-        if len(text) > ROUTER_MAX_TRIVIAL_CHARS:
-            return self.model
-        for rx in _TRIVIAL_PATTERNS:
-            if rx.search(text):
-                return SMALL_MODEL
-        return self.model
+        return SMALL_MODEL if self._is_social_turn(user_message) else self.model
 
     # -----------------------------------------------------------------
     # session branching
@@ -308,8 +323,84 @@ class ChahlieAgent:
     # prompt construction
     # -----------------------------------------------------------------
 
-    def _get_enhanced_system_prompt(self, user_message: str = "") -> str:
+    def _is_social_turn(self, user_message: str) -> bool:
+        """Heuristic: detect short hype / gratitude / banter turns.
+
+        We keep this conservative. Anything that smells like an actual coding
+        request should stay on the full agent path.
+        """
+        if not SOCIAL_FAST_PATH:
+            return False
+        text = (user_message or "").strip()
+        if not text or len(text) > SOCIAL_MAX_INPUT_CHARS:
+            return False
+        lowered = text.lower()
+        tokens = set(re.findall(r"[a-zA-Z_]+", lowered))
+        if _CODING_KEYWORDS.intersection(tokens):
+            return False
+        if any(ch in text for ch in ("`", "{", "}", "[", "]", "(", ")", "\\", "/", "=")):
+            return False
+        return any(rx.search(text) for rx in _SOCIAL_PATTERNS)
+
+    def _extract_text_content(self, content) -> str:
+        """Flatten assistant/user content into plain text for lightweight history."""
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            parts = []
+            for block in content:
+                if not isinstance(block, dict):
+                    continue
+                if block.get("type") == "text":
+                    parts.append(block.get("text", ""))
+            return "\n".join(p for p in parts if p)
+        return ""
+
+    def _history_for_turn(self, *, social_mode: bool) -> list[dict]:
+        """Use only the recent conversational tail for social turns."""
+        if not social_mode:
+            return self.conversation_history
+
+        tail: list[dict] = []
+        for msg in reversed(self.conversation_history):
+            role = msg.get("role")
+            if role not in ("user", "assistant"):
+                continue
+            text = self._extract_text_content(msg.get("content"))
+            if not text.strip():
+                continue
+            tail.append({"role": role, "content": text})
+            if len(tail) >= SOCIAL_HISTORY_MESSAGES:
+                break
+        return list(reversed(tail))
+
+    def _social_system_prompt(self) -> str:
+        return (
+            "You are Chahlie, a playful Boston-flavored assistant.\n"
+            "The user is making casual social banter, not asking for code work.\n"
+            f"Reply in at most {SOCIAL_MAX_REPLY_LINES} short lines, warm and punchy.\n"
+            "Do NOT call tools. Do NOT list options unless asked. Do NOT write long stories.\n"
+            "Keep the tone fun, direct, and conversational."
+        )
+
+    def _shorten_social_reply(self, text: str) -> str:
+        """Clamp social replies so the model can't monologue."""
+        text = (text or "").strip()
+        if not text:
+            return text
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        if lines:
+            lines = lines[:SOCIAL_MAX_REPLY_LINES]
+            text = "\n".join(lines)
+        if len(text) <= SOCIAL_MAX_REPLY_CHARS:
+            return text
+        clipped = text[:SOCIAL_MAX_REPLY_CHARS].rsplit(" ", 1)[0].rstrip()
+        return (clipped or text[:SOCIAL_MAX_REPLY_CHARS]).rstrip(" .,!?:;") + "..."
+
+    def _get_enhanced_system_prompt(self, user_message: str = "", *, lightweight: bool = False) -> str:
         """Base prompt + project primer + learned user patterns + recent reflections."""
+        if lightweight:
+            return self._social_system_prompt()
         parts = [SYSTEM_PROMPT]
 
         primer_text = render_primer_prompt(self.primer)
@@ -463,9 +554,10 @@ class ChahlieAgent:
         stream: bool,
         *,
         model: Optional[str] = None,
+        tools: Optional[list[dict]] = None,
     ) -> Generator[dict, None, None]:
         """Yields incremental chunks when streaming, or a single chunk otherwise."""
-        tools = self._ollama_tools()
+        tools = self._ollama_tools() if tools is None else tools
         use_model = model or self.model
         if not stream:
             resp = self.client.chat(
@@ -520,9 +612,10 @@ class ChahlieAgent:
             self.memory.track_message("user", user_message)
         self.cost.add_input(user_message)
         self._tool_cache.clear()
+        social_mode = self._is_social_turn(user_message)
 
         _t = time.time()
-        system_prompt = self._get_enhanced_system_prompt(user_message)
+        system_prompt = self._get_enhanced_system_prompt(user_message, lightweight=social_mode)
         self._timing("system_prompt_build", _t)
         self.cost.add_input(system_prompt)
 
@@ -530,22 +623,23 @@ class ChahlieAgent:
         self.current_task = user_message[:200]
         self.task_start_time = datetime.now()
 
-        use_stream = STREAMING
+        use_stream = STREAMING and not social_mode
         routed_model = self._select_model(user_message)
+        ollama_tools = [] if social_mode else None
 
         while True:
-            # Trim stale tool outputs before any compaction check so the
-            # estimator doesn't see bloated payloads from prior turns.
-            self._trim_stale_tool_results()
+            if not social_mode:
+                # Trim stale tool outputs before any compaction check so the
+                # estimator doesn't see bloated payloads from prior turns.
+                self._trim_stale_tool_results()
+                self.conversation_history, compacted = self._maybe_compact(self.conversation_history)
+                if compacted:
+                    yield AgentEvent(
+                        type="thinking",
+                        content="(compacting older turns to stay within context)",
+                    )
 
-            self.conversation_history, compacted = self._maybe_compact(self.conversation_history)
-            if compacted:
-                yield AgentEvent(
-                    type="thinking",
-                    content="(compacting older turns to stay within context)",
-                )
-
-            messages = [{"role": "system", "content": system_prompt}] + self.conversation_history
+            messages = [{"role": "system", "content": system_prompt}] + self._history_for_turn(social_mode=social_mode)
             yield AgentEvent(type="thinking", content=get_working())
 
             try:
@@ -557,7 +651,9 @@ class ChahlieAgent:
                     on_tick=lambda elapsed: print(f"[chahlie] still working... {elapsed}s", flush=True),
                 )
                 heartbeat.start()
-                for chunk in self._call_ollama(messages, stream=use_stream, model=routed_model):
+                for chunk in self._call_ollama(
+                    messages, stream=use_stream, model=routed_model, tools=ollama_tools,
+                ):
                     heartbeat.tickle()  # first byte -> stop the heartbeat
                     if chunk.get("stream_delta"):
                         streamed_text += chunk["content"]
@@ -584,6 +680,8 @@ class ChahlieAgent:
                 return
 
             content = final_payload.get("content", "") or streamed_text
+            if social_mode:
+                content = self._shorten_social_reply(content)
             tool_calls = final_payload.get("tool_calls", []) or []
             self.cost.add_output(content)
 
@@ -685,6 +783,7 @@ class ChahlieAgent:
         if self.memory:
             self.memory.track_message("user", user_message)
         self.cost.add_input(user_message)
+        social_mode = self._is_social_turn(user_message)
 
         self.conversation_history.append({"role": "user", "content": user_message})
         self.current_task = user_message[:200]
@@ -694,14 +793,15 @@ class ChahlieAgent:
         # every tool-loop iteration. Avoids re-running the pattern-learner
         # profile + semantic search on every API call.
         _t = time.time()
-        cached_system = self._get_enhanced_system_prompt(user_message)
+        cached_system = self._get_enhanced_system_prompt(user_message, lightweight=social_mode)
         self._timing("system_prompt_build", _t)
 
         while True:
-            self._trim_stale_tool_results()
-            self.conversation_history, compacted = self._maybe_compact(self.conversation_history)
-            if compacted:
-                yield AgentEvent(type="thinking", content="(compacting older turns to stay within context)")
+            if not social_mode:
+                self._trim_stale_tool_results()
+                self.conversation_history, compacted = self._maybe_compact(self.conversation_history)
+                if compacted:
+                    yield AgentEvent(type="thinking", content="(compacting older turns to stay within context)")
 
             yield AgentEvent(type="thinking", content=get_working())
             heartbeat = _Heartbeat(
@@ -711,13 +811,15 @@ class ChahlieAgent:
             heartbeat.start()
             call_start = time.time()
             try:
-                response = self.client.messages.create(
+                kwargs = dict(
                     model=self.model,
-                    max_tokens=MAX_TOKENS,
+                    max_tokens=SOCIAL_MAX_TOKENS if social_mode else MAX_TOKENS,
                     system=cached_system,
-                    tools=TOOL_DEFINITIONS + self.plugin_definitions,
-                    messages=self.conversation_history,
                 )
+                if not social_mode:
+                    kwargs["tools"] = TOOL_DEFINITIONS + self.plugin_definitions
+                kwargs["messages"] = self._history_for_turn(social_mode=social_mode)
+                response = self.client.messages.create(**kwargs)
                 heartbeat.stop()
                 self._timing("anthropic_call", call_start)
             except Exception as e:
@@ -744,6 +846,11 @@ class ChahlieAgent:
                         "name": block.name, "input": block.input,
                     })
                     tool_blocks.append(block)
+
+            if social_mode:
+                text_content = self._shorten_social_reply(text_content)
+                assistant_content = [{"type": "text", "text": text_content}] if text_content else []
+                has_tool_use = False
 
             self.cost.add_output(text_content)
 
