@@ -370,8 +370,36 @@ fn chahlie_data_dir() -> String {
         .unwrap_or_else(|| "~/.local/share/chahlie".into())
 }
 
+/// Set conservative WebKitGTK/GL rendering defaults before the webview boots.
+///
+/// On the Steam Deck (and some Mesa setups) WebKitGTK fails to create a GPU
+/// context and aborts with `Could not create default EGL display:
+/// EGL_BAD_PARAMETER`. Disabling the DMABUF renderer and falling back to
+/// software GL sidesteps the broken EGL path entirely — fine for a chat UI.
+/// Every value is only set when the user hasn't already exported their own,
+/// so power users keep full control.
+#[cfg(target_os = "linux")]
+fn ensure_render_env() {
+    let defaults = [
+        ("WEBKIT_DISABLE_DMABUF_RENDERER", "1"),
+        ("WEBKIT_DISABLE_COMPOSITING_MODE", "1"),
+        // Software GL: slower but immune to the Deck's EGL_BAD_PARAMETER crash.
+        ("LIBGL_ALWAYS_SOFTWARE", "1"),
+    ];
+    for (key, val) in defaults {
+        if std::env::var_os(key).is_none() {
+            std::env::set_var(key, val);
+        }
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn ensure_render_env() {}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    ensure_render_env();
+
     let port = std::env::var("CHAHLIE_TAURI_PORT")
         .ok()
         .and_then(|p| p.parse().ok())

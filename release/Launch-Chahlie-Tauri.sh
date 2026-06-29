@@ -15,7 +15,10 @@ if [[ -z "$APP" || ! -f "$APP" ]]; then
 fi
 
 export WEBKIT_DISABLE_DMABUF_RENDERER=1
+export WEBKIT_DISABLE_COMPOSITING_MODE=1
 export GDK_BACKEND=x11
+# Software GL: dodges the Steam Deck's EGL_BAD_PARAMETER crash (chat UI = fine).
+export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"
 # Steam Deck — use venv python (works without system pip / read-only root)
 VENV="${CHAHLIE_VENV:-$HOME/.local/share/chahlie/venv}"
 if [[ -x "$VENV/bin/python" ]]; then
