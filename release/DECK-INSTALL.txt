@@ -1,0 +1,38 @@
+╔══════════════════════════════════════════════════════════════╗
+║     CHAHLIE ON STEAM DECK — START HERE (easiest path)         ║
+╚══════════════════════════════════════════════════════════════╝
+
+You do NOT need pip, AppImage, or Tauri for the simple install.
+
+Open KONSOLE and paste this ENTIRE block:
+
+cd ~/Downloads
+curl -L -O https://github.com/AaronGrace978/Chahlie/releases/download/v2.5.12/chahlie-deck-2.5.12-linux-x86_64.tar.gz
+tar -xzf chahlie-deck-2.5.12-linux-x86_64.tar.gz
+cd chahlie-deck-2.5.12-linux
+chmod +x START-CHAHLIE.sh
+./START-CHAHLIE.sh
+
+First run installs everything into its own Python venv (~2 min).
+Then the UI opens — paste your Ollama API key.
+
+Get a free key: https://ollama.com/settings/keys
+
+Add to Steam: Desktop Mode → Steam → Add Non-Steam Game → chahlie-deck
+(or the Start Chahlie shortcut on your Desktop)
+
+────────────────────────────────────────────────────────────────
+If you want the Tauri GUI AppImage instead:
+
+1. Download AppImage from (look for Chahlie_*_amd64.AppImage):
+   https://github.com/AaronGrace978/Chahlie/releases/tag/v2.6.1-tauri
+
+2. Install pip first (SteamOS doesn't include it):
+   python3 -m ensurepip --user
+   OR:  sudo pacman -S python-pip
+
+3. Launch:
+   export WEBKIT_DISABLE_DMABUF_RENDERER=1
+   export CHAHLIE_PYTHON=/usr/bin/python3
+   chmod +x ~/Downloads/Chahlie_*_amd64.AppImage
+   ~/Downloads/Chahlie_*_amd64.AppImage

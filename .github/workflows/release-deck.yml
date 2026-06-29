@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   build-deck-release:
+    if: ${{ !contains(github.ref_name, '-tauri') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

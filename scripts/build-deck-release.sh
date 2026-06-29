@@ -34,6 +34,7 @@ cp "$ROOT/release/run-chahlie-deck.sh" "$STAGE/run-chahlie-deck.sh"
 cp "$ROOT/release/INSTALL.txt" "$STAGE/INSTALL.txt"
 cp "$ROOT/release/README-FIRST.txt" "$STAGE/README-FIRST.txt"
 cp "$ROOT/release/README-FIRST.txt" "$STAGE/!!! READ THIS FIRST !!!.txt"
+cp "$ROOT/release/DECK-INSTALL.txt" "$STAGE/DECK-INSTALL.txt"
 chmod +x "$STAGE/START-CHAHLIE.sh" "$STAGE/PASTE-IN-KONSOLE.sh" "$STAGE/install.sh" "$STAGE/run-chahlie-deck.sh" "$STAGE/Start Chahlie.desktop"
 
 mkdir -p "$ROOT/dist"
