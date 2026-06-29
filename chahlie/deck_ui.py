@@ -368,8 +368,9 @@ if TEXTUAL_AVAILABLE:
 
         def on_mount(self) -> None:
             self._loop = asyncio.get_running_loop()
-            self.call_later(self._boot)
+            self._boot()
 
+        @work
         async def _boot(self) -> None:
             if needs_api_key_setup():
                 key = await self.push_screen_wait(SetupScreen())
