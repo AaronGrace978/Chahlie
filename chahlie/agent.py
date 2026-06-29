@@ -705,7 +705,7 @@ class ChahlieAgent:
         if "timeout" in cls_name or "readtimeout" in cls_name or "connecterror" in cls_name:
             return True
         return any(token in text for token in (
-            "503", "502", "504",
+            "503", "502", "504", "429",
             "service temporarily unavailable",
             "bad gateway",
             "gateway timeout",
@@ -713,12 +713,45 @@ class ChahlieAgent:
             "timed out",
             "read operation",
             "temporarily unavailable",
+            "too many requests",
+            "rate limit",
             "connection reset",
             "connection aborted",
             "remote end closed",
             "remote disconnected",
             "eof occurred",
         ))
+
+    def _format_ollama_error(self, err: Exception | str) -> str:
+        """User-facing Ollama error with Deck-friendly hints."""
+        text = str(err).lower()
+        if any(token in text for token in (
+            "401", "403", "unauthorized", "forbidden",
+            "invalid api key", "authentication", "not authenticated",
+        )):
+            return (
+                "Ollama Cloud auth failed, kehd.\n\n"
+                "Get or refresh your key: https://ollama.com/settings/keys\n"
+                "Then set OLLAMA_API_KEY in your .env (Deck install: "
+                "~/.local/share/chahlie/.env)."
+            )
+        if "model" in text and any(token in text for token in ("not found", "unknown", "does not exist")):
+            return (
+                f"Ollama model problem: {err}\n\n"
+                "Pick a cloud model from https://ollama.com/search?c=cloud\n"
+                "Set OLLAMA_CLOUD_MODEL in .env (e.g. qwen3.5:cloud)."
+            )
+        if self._is_transient_ollama_error(err):
+            return (
+                "Ollama Cloud's takin' a nap, kehd. Tried 3 times and "
+                "it's still wobbly.\n\n"
+                "Try one of these:\n"
+                "  • Wait a minute and ask again\n"
+                "  • Add a fallback: CHAHLIE_FALLBACK_MODELS=glm-5.1:cloud\n"
+                "  • Switch to local Ollama: CHAHLIE_BACKEND=ollama-local\n"
+                "  • Check status: https://ollama.com/status"
+            )
+        return f"Ollama Error: {err}"
 
     def _social_fallback_reply(self, user_message: str) -> str:
         """Tiny local fallback when cloud chat is down for a banter-only turn.
@@ -1342,21 +1375,7 @@ class ChahlieAgent:
                     yield AgentEvent(type="cost", content=self.cost.format(), data={"cost": self.cost.cost_usd})
                     yield AgentEvent(type="done", content=get_success())
                     return
-                if self._is_transient_ollama_error(last_error):
-                    yield AgentEvent(
-                        type="error",
-                        content=(
-                            "Ollama Cloud's takin' a nap, kehd. Tried 3 times and "
-                            "it's still wobbly.\n\n"
-                            "Try one of these:\n"
-                            "  • Wait a minute and ask again\n"
-                            "  • Switch to local Ollama: set CHAHLIE_BACKEND=ollama-local\n"
-                            "  • Switch to Anthropic:    set CHAHLIE_BACKEND=anthropic\n"
-                            "  • Check status:           https://ollama.com/status"
-                        ),
-                    )
-                else:
-                    yield AgentEvent(type="error", content=f"Ollama Error: {last_error}")
+                yield AgentEvent(type="error", content=self._format_ollama_error(last_error))
                 if self.memory:
                     note = self._llm_reflect_on_failure("api_call", {}, str(last_error))
                     self.reflection_engine.reflect_on_tool_use(

@@ -107,6 +107,8 @@ bash scripts/chahlie-deck.sh
 | Textual won't start | `pip install textual>=0.50` |
 | Slow responses | Use `qwen3.5:cloud` or local `qwen3:8b`; disable semantic memory |
 | Approval stuck | Use touch buttons on the modal; A=approve B=deny |
+| Can't type / keyboard dead | Tap the input bar or press **F7** (map Steam **Start**→F7). Toolbar buttons steal focus — we refocus after taps now. In Gaming Mode use Desktop Mode keyboard or **F4 Talk** |
+| Ollama Cloud fails | Check `OLLAMA_API_KEY` in `~/.local/share/chahlie/.env`; try `CHAHLIE_FALLBACK_MODELS`; see https://ollama.com/status |
 
 ## What's in the box
 

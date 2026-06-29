@@ -215,11 +215,33 @@ if TEXTUAL_AVAILABLE:
             background: #0A1A2E;
         }}
 
+        #input-row:focus-within {{
+            background: #0E2A4A;
+        }}
+
         #user-input {{
             width: 1fr;
             border: solid {ACCENT};
             background: {NAVY};
             color: white;
+            min-height: 3;
+        }}
+
+        #user-input:focus {{
+            border: thick {ACCENT};
+            background: #0E2A4A;
+        }}
+
+        #user-input.-disabled {{
+            opacity: 0.65;
+            border: solid {MUTED};
+        }}
+
+        #input-hint {{
+            width: auto;
+            color: {MUTED};
+            content-align: center middle;
+            padding: 0 1;
         }}
 
         .msg-user {{
@@ -251,7 +273,9 @@ if TEXTUAL_AVAILABLE:
             Binding("f4", "toggle_mic", "Talk"),
             Binding("f5", "toggle_tts", "TTS"),
             Binding("f6", "stop_speech", "Stop voice"),
+            Binding("f7", "focus_input", "Type"),
             Binding("ctrl+l", "clear", "Clear", show=False),
+            Binding("ctrl+i", "focus_input", "Type", show=False),
         ]
 
         def __init__(self):
@@ -260,7 +284,9 @@ if TEXTUAL_AVAILABLE:
             self.voice = VoiceManager()
             self._loop: Optional[asyncio.AbstractEventLoop] = None
             self._listening = False
+            self._processing = False
             self._tts_on = VOICE_TTS_ENABLED
+            self._input_placeholder = "Type or press F4 / 🎤 Talk to speak…"
 
         def compose(self) -> ComposeResult:
             yield Header(show_clock=True)
@@ -279,9 +305,10 @@ if TEXTUAL_AVAILABLE:
                 yield Button("Quit", id="btn-quit", variant="warning")
             with Horizontal(id="input-row"):
                 yield Input(
-                    placeholder="Type or press F4 / 🎤 Talk to speak…",
+                    placeholder=self._input_placeholder,
                     id="user-input",
                 )
+                yield Label("F7 = focus", id="input-hint")
             yield Footer()
 
         def on_mount(self) -> None:
@@ -292,7 +319,7 @@ if TEXTUAL_AVAILABLE:
             self._log_system(get_greeting())
             self._log_system(
                 "Deck controls: F1 Help · F2 Clear · F3 Memory · "
-                "F4 Talk · F5 TTS · Enter send"
+                "F4 Talk · F5 TTS · F7 Type · Enter send"
             )
             if voice_available():
                 self._log_system(f"Voice: {self.voice.status_line()}")
@@ -310,7 +337,36 @@ if TEXTUAL_AVAILABLE:
             if self.agent.plugin_warnings:
                 for w in self.agent.plugin_warnings:
                     self._log_system(f"[yellow]plugin: {w}[/yellow]")
-            self.query_one("#user-input", Input).focus()
+            self._focus_input()
+
+        def _input(self) -> Input:
+            return self.query_one("#user-input", Input)
+
+        def _focus_input(self) -> None:
+            """Keep keyboard focus on the text field unless we're busy."""
+            if self._processing or self._listening:
+                return
+            try:
+                self._input().focus()
+            except Exception:
+                pass
+
+        def _set_processing(self, on: bool) -> None:
+            self._processing = on
+            inp = self._input()
+            inp.disabled = on
+            if on:
+                inp.placeholder = "Chahlie is thinking… (F7 refocuses when done)"
+                bar = self.query_one("#status-bar", DeckStatusBar)
+                bar.status_text = "⏳ Working… you can still read the chat"
+            else:
+                inp.placeholder = self._input_placeholder
+                self._refresh_status()
+                self._focus_input()
+
+        def on_screen_resume(self) -> None:
+            """Refocus after approval modals and other screens dismiss."""
+            self._focus_input()
 
         def _chat(self) -> RichLog:
             return self.query_one("#chat-log", RichLog)
@@ -363,6 +419,11 @@ if TEXTUAL_AVAILABLE:
                 return bool(future.result(timeout=300))
             except Exception:
                 return False
+            finally:
+                try:
+                    self.call_from_thread(self._focus_input)
+                except RuntimeError:
+                    self._focus_input()
 
         def _handle_slash(self, msg: str) -> bool:
             """Return True if handled (don't send to agent)."""
@@ -390,57 +451,86 @@ if TEXTUAL_AVAILABLE:
                 return True
             return False
 
-        def _process_message(self, msg: str) -> None:
+        def _dispatch_agent_event(self, evt) -> None:
+            """Handle one agent event on the UI thread."""
+            if evt.type == "text":
+                streaming = evt.data and evt.data.get("streaming")
+                if streaming:
+                    return
+                self._log_agent(evt.content)
+                if self._tts_on:
+                    self.voice.speak(evt.content)
+            elif evt.type == "thinking":
+                self._log_system(f"💭 {evt.content}")
+            elif evt.type == "tool_use":
+                self._log_tool(evt.data.get("tool", "?"))
+            elif evt.type == "tool_result":
+                ok = "✓" if evt.data.get("success") else "✗"
+                snippet = str(evt.content)[:160].replace("\n", " ")
+                self._log_system(f"{ok} {evt.data.get('tool')}: {snippet}")
+            elif evt.type == "reflection":
+                self._log_system(f"💡 {evt.content}")
+            elif evt.type == "error":
+                self._log_error(evt.content)
+            elif evt.type == "cost":
+                self._log_system(f"💰 {evt.content}")
+
+        def _process_message_worker(self, msg: str) -> None:
+            """Run agent turn off the UI thread so typing stays responsive."""
             if not self.agent:
                 return
             buffer = ""
             streaming = False
-            for evt in self.agent.process(msg):
-                if evt.type == "text":
-                    if evt.data and evt.data.get("streaming"):
-                        buffer += evt.content
-                        streaming = True
-                    else:
+            try:
+                for evt in self.agent.process(msg):
+                    if evt.type == "text":
+                        if evt.data and evt.data.get("streaming"):
+                            buffer += evt.content
+                            streaming = True
+                            continue
                         if streaming and buffer:
-                            self._log_agent(buffer)
-                            if self._tts_on:
-                                self.voice.speak(buffer)
+                            chunk = buffer
                             buffer = ""
                             streaming = False
-                        self._log_agent(evt.content)
-                        if self._tts_on:
-                            self.voice.speak(evt.content)
-                elif evt.type == "thinking":
-                    self._log_system(f"💭 {evt.content}")
-                elif evt.type == "tool_use":
-                    if streaming and buffer:
-                        self._log_agent(buffer)
-                        buffer = ""
-                        streaming = False
-                    self._log_tool(evt.data.get("tool", "?"))
-                elif evt.type == "tool_result":
-                    ok = "✓" if evt.data.get("success") else "✗"
-                    snippet = str(evt.content)[:160].replace("\n", " ")
-                    self._log_system(f"{ok} {evt.data.get('tool')}: {snippet}")
-                elif evt.type == "reflection":
-                    self._log_system(f"💡 {evt.content}")
-                elif evt.type == "error":
-                    self._log_error(evt.content)
-                elif evt.type == "cost":
-                    self._log_system(f"💰 {evt.content}")
-            if streaming and buffer:
-                self._log_agent(buffer)
-                if self._tts_on:
-                    self.voice.speak(buffer)
-            self._refresh_status()
+                            self.call_from_thread(self._log_agent, chunk)
+                            if self._tts_on:
+                                self.voice.speak(chunk)
+                        self.call_from_thread(self._dispatch_agent_event, evt)
+                    else:
+                        if streaming and buffer:
+                            chunk = buffer
+                            buffer = ""
+                            streaming = False
+                            self.call_from_thread(self._log_agent, chunk)
+                            if self._tts_on:
+                                self.voice.speak(chunk)
+                        self.call_from_thread(self._dispatch_agent_event, evt)
+                if streaming and buffer:
+                    self.call_from_thread(self._log_agent, buffer)
+                    if self._tts_on:
+                        self.voice.speak(buffer)
+            except Exception as exc:
+                self.call_from_thread(self._log_error, str(exc))
+            finally:
+                self.call_from_thread(self._set_processing, False)
+
+        @work(thread=True)
+        def _process_message(self, msg: str) -> None:
+            self.call_from_thread(self._set_processing, True)
+            self._process_message_worker(msg)
 
         @on(Input.Submitted, "#user-input")
         def on_input_submitted(self, event: Input.Submitted) -> None:
             msg = event.value.strip()
             if not msg:
                 return
-            self.query_one("#user-input", Input).value = ""
+            if self._processing:
+                self._log_system("Still working on the last message…")
+                self._focus_input()
+                return
+            self._input().value = ""
             if self._handle_slash(msg):
+                self._focus_input()
                 return
             self._log_user(msg)
             self._process_message(msg)
@@ -448,14 +538,17 @@ if TEXTUAL_AVAILABLE:
         @on(Button.Pressed, "#btn-help")
         def _btn_help(self) -> None:
             self.action_help()
+            self._focus_input()
 
         @on(Button.Pressed, "#btn-clear")
         def _btn_clear(self) -> None:
             self.action_clear()
+            self._focus_input()
 
         @on(Button.Pressed, "#btn-memory")
         def _btn_memory(self) -> None:
             self.action_memory()
+            self._focus_input()
 
         @on(Button.Pressed, "#mic-btn")
         def _btn_mic(self) -> None:
@@ -464,16 +557,27 @@ if TEXTUAL_AVAILABLE:
         @on(Button.Pressed, "#tts-btn")
         def _btn_tts(self) -> None:
             self.action_toggle_tts()
+            self._focus_input()
 
         @on(Button.Pressed, "#btn-quit")
         def _btn_quit(self) -> None:
             self.exit()
 
+        @on(Input.Focused, "#user-input")
+        def _input_focused(self, _event: Input.Focused) -> None:
+            self._chat().scroll_end(animate=False)
+
+        def action_focus_input(self) -> None:
+            if self._processing:
+                self._log_system("Still working… input unlocks when Chahlie finishes.")
+                return
+            self._focus_input()
+
         def action_help(self) -> None:
             self._log_system(
                 "[bold]Deck commands[/]: /help /clear /memory /voice /tts /quit\n"
-                "[bold]Keys[/]: F1 Help · F2 Clear · F3 Memory · F4 Talk · F5 TTS\n"
-                "[bold]Steam Input[/]: map A→Enter, B→Esc, X→F4, Y→F1 for couch mode"
+                "[bold]Keys[/]: F1 Help · F2 Clear · F3 Memory · F4 Talk · F5 TTS · F7 Type\n"
+                "[bold]Steam Input[/]: map A→Enter, B→Esc, X→F4, Y→F1, Start→F7 for typing"
             )
 
         def action_clear(self) -> None:
@@ -539,9 +643,15 @@ if TEXTUAL_AVAILABLE:
 
         def _on_voice_result(self, text: str) -> None:
             if not text.strip():
+                self._focus_input()
+                return
+            if self._processing:
+                self._log_system("Still working on the last message…")
+                self._focus_input()
                 return
             self._log_user(f"🎤 {text}")
             if self._handle_slash(text):
+                self._focus_input()
                 return
             self._process_message(text)
 
