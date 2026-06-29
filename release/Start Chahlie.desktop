@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=▶ DOUBLE-CLICK TO START CHAHLIE
+GenericName=Chahlie AI
+Comment=Boston coding agent for Steam Deck — click to launch
+Icon=utilities-terminal
+Terminal=true
+Exec=bash -lc 'F=""; for d in "$HOME/Downloads"/chahlie-deck-*-linux "$HOME"/chahlie-deck-*-linux; do [ -f "$d/START-CHAHLIE.sh" ] && F="$d" && break; done; if [ -z "$F" ]; then F="$(dirname "$(find "$HOME" -name START-CHAHLIE.sh 2>/dev/null | head -1)")"; fi; if [ ! -f "$F/START-CHAHLIE.sh" ]; then echo "Cannot find Chahlie folder."; echo "Extract the download in Downloads first."; read -r; exit 1; fi; cd "$F" && chmod +x START-CHAHLIE.sh && exec ./START-CHAHLIE.sh'
+Categories=Game;Utility;
+StartupNotify=true

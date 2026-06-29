@@ -1,52 +1,42 @@
-# Chahlie Steam Deck Edition
+# Chahlie Steam Deck
 
-**v2.5.3** — extract, double-click, chat. That's it.
+## DO NOT open files in Kate. Click the launcher.
 
-## The easy way (3 steps)
+### Step 1 — Download
+https://github.com/AaronGrace978/Chahlie/releases/latest
 
-1. **Download** from [Releases](https://github.com/AaronGrace978/Chahlie/releases):
-   `chahlie-deck-2.5.3-linux-x86_64.tar.gz`
+Download `chahlie-deck-*-linux-x86_64.tar.gz`
 
-2. **Extract** the zip in Downloads (right-click → Extract)
+### Step 2 — Extract
+Right-click the download → **Extract Here**
 
-3. **Double-click** `START-CHAHLIE.sh`
-   - First launch installs automatically (~1 minute)
-   - The **UI opens** — a full-screen chat app (Textual TUI)
-   - Paste your free API key when the welcome screen appears
-   - Get a key at: https://ollama.com/settings/keys
+### Step 3 — Run (pick ONE)
 
-After the first run, use the **"Start Chahlie"** icon on your Desktop.
+**Option A — Double-click (recommended)**
 
----
+1. Open the extracted folder in **Dolphin** (file manager, not Kate)
+2. Double-click **`Start Chahlie.desktop`**
+3. If it asks: right-click → **Allow Launching** → double-click again
 
-## What you'll see
+**Option B — Konsole (if double-click fails)**
 
-A proper app UI with:
-- Chat window (type or talk to Chahlie)
-- Toolbar buttons: Help · Clear · Memory · 🎤 Talk · 🔊 TTS · Quit
-- Gamepad-friendly (map A=Enter, X=F4 Talk in Steam Input)
+Open **Konsole** (the terminal app). Copy and paste this entire line, press Enter:
 
-No `install.sh`. No `nano`. No pacman. No terminal required after the first double-click.
-
----
-
-## If double-click doesn't work
-
-Open Konsole and run:
-
-```bash
-cd ~/Downloads/chahlie-deck-*-linux
-chmod +x START-CHAHLIE.sh
-./START-CHAHLIE.sh
+```
+cd ~/Downloads/chahlie-deck-*-linux && chmod +x START-CHAHLIE.sh && ./START-CHAHLIE.sh
 ```
 
-## Troubleshooting
+### Step 4 — Paste API key in the UI
+Get a free key: https://ollama.com/settings/keys
 
-| Problem | Fix |
-|---------|-----|
-| Permission denied | `chmod +x START-CHAHLIE.sh` |
-| First run slow | Normal — downloading Python packages once |
-| No API key screen | Delete `~/.local/share/chahlie/.env` and restart |
-| Want to re-setup | Delete `~/.local/share/chahlie/venv/.chahlie-ready` and restart |
+---
 
-Made with love by **Cursor Boston** ⚾
+## You clicked the wrong file if Kate opened
+
+| Wrong (opens Kate) | Right (runs Chahlie) |
+|--------------------|----------------------|
+| `START-CHAHLIE.sh` | `Start Chahlie.desktop` |
+| Any `.py` file | `Start Chahlie.desktop` |
+| `README-FIRST.txt` | `Start Chahlie.desktop` |
+
+Kate is a **text editor**. You want the **`.desktop`** launcher file.

@@ -25,13 +25,15 @@ tar -cf - -C "$ROOT" \
   --exclude='.chahlie' \
   . | tar -xf - -C "$STAGE"
 
-# Standalone launchers at tarball root
+# Standalone launchers at tarball root — .desktop is the main one (NOT the .sh file)
+cp "$ROOT/release/Start Chahlie.desktop" "$STAGE/Start Chahlie.desktop"
 cp "$ROOT/release/START-CHAHLIE.sh" "$STAGE/START-CHAHLIE.sh"
 cp "$ROOT/release/install.sh" "$STAGE/install.sh"
 cp "$ROOT/release/run-chahlie-deck.sh" "$STAGE/run-chahlie-deck.sh"
 cp "$ROOT/release/INSTALL.txt" "$STAGE/INSTALL.txt"
-cp "$ROOT/release/INSTALL.txt" "$STAGE/README-FIRST.txt"
-chmod +x "$STAGE/START-CHAHLIE.sh" "$STAGE/install.sh" "$STAGE/run-chahlie-deck.sh"
+cp "$ROOT/release/README-FIRST.txt" "$STAGE/README-FIRST.txt"
+cp "$ROOT/release/README-FIRST.txt" "$STAGE/!!! READ THIS FIRST !!!.txt"
+chmod +x "$STAGE/START-CHAHLIE.sh" "$STAGE/install.sh" "$STAGE/run-chahlie-deck.sh" "$STAGE/Start Chahlie.desktop"
 
 mkdir -p "$ROOT/dist"
 tar -czf "$ARCHIVE" -C "$ROOT/dist" "chahlie-deck-${VERSION}-linux"
