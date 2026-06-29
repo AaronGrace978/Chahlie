@@ -1,14 +1,13 @@
 # Chahlie Steam Deck Edition — extra dependencies
-# Install: pip install -r requirements.txt -r requirements-deck.txt
+# No PyAudio — voice uses system pw-record + espeak-ng (no compiling!)
 
-# Core (if not already installed)
 -r requirements.txt
 
-# Deck UI (Textual is in requirements.txt)
-# Voice input/output
+# Voice (STT uses SpeechRecognition + Linux pw-record; TTS uses espeak-ng)
 SpeechRecognition>=3.10.0
-PyAudio>=0.2.14
-pyttsx3>=2.90
 
 # Optional offline speech (download a Vosk model, set CHAHLIE_VOSK_MODEL)
 # vosk>=0.3.45
+
+# Optional PyAudio fallback on machines that already have it installed
+# PyAudio>=0.2.14

@@ -2,7 +2,13 @@
 
 import unittest
 
-from chahlie.voice import _clean_for_speech, voice_available, stt_available, tts_available
+from chahlie.voice import (
+    _clean_for_speech,
+    _linux_recorder,
+    voice_available,
+    stt_available,
+    tts_available,
+)
 
 
 class TestVoiceHelpers(unittest.TestCase):
@@ -17,6 +23,11 @@ class TestVoiceHelpers(unittest.TestCase):
         long_text = "word " * 200
         cleaned = _clean_for_speech(long_text, max_chars=50)
         self.assertLessEqual(len(cleaned), 50)
+
+    def test_linux_recorder_probe(self):
+        # Returns None or a path string — never crashes
+        rec = _linux_recorder()
+        self.assertTrue(rec is None or isinstance(rec, str))
 
     def test_availability_probes_are_bool(self):
         self.assertIsInstance(voice_available(), bool)

@@ -1,34 +1,41 @@
 # Chahlie Steam Deck Edition
 
-**v2.5.0 "Green Monster"** — talk to your Boston coding agent on the go.
+**v2.5.1 "Tap the Glass"** — download, install, talk. No compiler needed.
 
-Chahlie's Steam Deck build gives you a polished **1280×800 UI**, **voice input/output**, **touch-friendly buttons**, and **gamepad-ready approvals** — the same agentic coding brain as desktop, tuned for handheld.
+## Download and run (easiest)
 
-## Quick install (Desktop Mode)
-
-```bash
-git clone https://github.com/AaronGrace978/Chahlie.git
-cd Chahlie
-bash scripts/install-steam-deck.sh
-```
-
-Then launch:
-
-```bash
-chahlie-deck
-```
-
-Or add **Chahlie (Steam Deck)** from your KDE app menu, or register it as a **Non-Steam Game** for Gaming Mode.
-
-## First-time setup
-
-1. Copy deck config and add your API key:
-   ```bash
-   cp .env.deck.example ~/.local/share/chahlie/.env
-   nano ~/.local/share/chahlie/.env
+1. Go to **[GitHub Releases](https://github.com/AaronGrace978/Chahlie/releases)** and download:
    ```
-2. Set `OLLAMA_API_KEY` (get one at [ollama.com/settings/keys](https://ollama.com/settings/keys)).
-3. For offline play, switch to `CHAHLIE_BACKEND=ollama-local` and run `ollama pull qwen3:8b`.
+   chahlie-deck-2.5.1-linux-x86_64.tar.gz
+   ```
+
+2. Open **Konsole** (Desktop Mode on your Deck):
+
+   ```bash
+   cd ~/Downloads
+   tar -xzf chahlie-deck-*-linux-x86_64.tar.gz
+   cd chahlie-deck-*-linux
+   ./install.sh
+   ```
+
+3. Add your API key:
+
+   ```bash
+   nano ~/.local/share/chahlie/.env
+   # set OLLAMA_API_KEY=your-key-here
+   ```
+
+4. Launch:
+
+   ```bash
+   chahlie-deck
+   ```
+
+That's it. No `git clone`, no gcc, no PyAudio compile errors.
+
+The installer pulls **prebuilt** system packages (`pipewire-pulse`, `espeak-ng`) from SteamOS and only pip-installs pure-Python deps.
+
+---
 
 ## Voice — talk to Chahlie
 
@@ -38,18 +45,9 @@ Or add **Chahlie (Steam Deck)** from your KDE app menu, or register it as a **No
 | **🔊 TTS** button or **F5** | Toggle spoken replies |
 | **F6** | Stop current speech |
 
-Voice uses your Deck mic + speaker. STT goes through Google Web Speech by default (needs Wi‑Fi). For **offline speech**, install a [Vosk model](https://alphacephei.com/vosk/models) and set:
+Voice uses **pw-record** (mic) and **espeak-ng** (speaker) — both come from SteamOS repos, no compiling.
 
-```bash
-CHAHLIE_VOSK_MODEL=/path/to/vosk-model-small-en-us-0.15
-```
-
-Install voice deps if you skipped the installer:
-
-```bash
-pip install -r requirements-deck.txt
-# SteamOS also needs: sudo pacman -S portaudio espeak-ng
-```
+STT uses Google Web Speech by default (needs Wi‑Fi). For offline speech, install a [Vosk model](https://alphacephei.com/vosk/models) and set `CHAHLIE_VOSK_MODEL` in `.env`.
 
 ## Deck UI controls
 
@@ -68,51 +66,37 @@ pip install -r requirements-deck.txt
 | Ctrl+C | Quit |
 
 ### Suggested Steam Input (Gaming Mode)
-Map these in Steam when you add `chahlie-deck` as a Non-Steam Game:
-
 | Button | Maps to |
 |--------|---------|
 | A | Enter |
 | B | Escape |
 | X | F4 (Talk) |
 | Y | F1 (Help) |
-| D-pad | Arrow keys (scroll) |
-
-### Dangerous command approval
-When Chahlie wants to run something risky (`rm -rf`, `git push --force`, etc.), a **modal** pops up. **A / Y = Approve**, **B / N = Deny** — works with touch or gamepad.
-
-## Run from source (dev)
-
-```bash
-pip install -r requirements.txt -r requirements-deck.txt
-cp .env.deck.example .env   # add your key
-bash scripts/chahlie-deck.sh
-# or: python -m chahlie --deck
-```
-
-## Deck-tuned settings
-
-`.env.deck.example` enables:
-- Compact social replies (good on a small screen)
-- Voice on by default
-- Approval prompts on (safer on a handheld)
-- Optional lighter memory (commented) if performance dips
 
 ## Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
-| No mic | `sudo pacman -S portaudio` then reinstall PyAudio |
+| `gcc failed` / PyAudio error | Use the **release tarball** — PyAudio is no longer required |
+| No mic | `sudo pacman -S pipewire-pulse` |
 | No voice out | `sudo pacman -S espeak-ng` |
-| Textual won't start | `pip install textual>=0.50` |
-| Slow responses | Use `qwen3.5:cloud` or local `qwen3:8b`; disable semantic memory |
-| Approval stuck | Use touch buttons on the modal; A=approve B=deny |
+| Install script needs sudo | Normal on Steam Deck — it installs system audio packages |
+| Slow responses | Use `qwen3.5:cloud` or local `qwen3:8b` |
 
-## What's in the box
+## Dev / git install (optional)
 
-- `chahlie/deck_ui.py` — Fenway-themed Deck UI (Textual)
-- `chahlie/voice.py` — STT/TTS module
-- `scripts/install-steam-deck.sh` — release installer
-- `requirements-deck.txt` — voice + UI extras
+```bash
+git clone https://github.com/AaronGrace978/Chahlie.git
+cd Chahlie
+bash scripts/install-steam-deck.sh
+chahlie-deck
+```
+
+## Build a release tarball yourself
+
+```bash
+bash scripts/build-deck-release.sh
+# → dist/chahlie-deck-VERSION-linux-x86_64.tar.gz
+```
 
 Made with love by **Cursor Boston** ⚾

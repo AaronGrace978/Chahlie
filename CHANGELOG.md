@@ -2,6 +2,23 @@
 
 All notable changes to Chahlie will be documented in this file.
 
+## [2.5.1] "Tap the Glass" - 2026-06-29
+
+Fixes Steam Deck install pain — **no PyAudio compile**, downloadable release tarball.
+
+### Fixed
+
+- Voice mic now uses **pw-record / parecord** (system PipeWire tools) instead of
+  pip-building PyAudio (which failed without gcc on SteamOS).
+- TTS uses **espeak-ng** directly on Linux — no extra pip compile step.
+
+### Added
+
+- **Downloadable release** — `chahlie-deck-VERSION-linux-x86_64.tar.gz` built by
+  `scripts/build-deck-release.sh` and published via GitHub Actions on tag push.
+- `release/install.sh` — standalone installer inside the tarball (extract → `./install.sh` → run).
+- `release/INSTALL.txt` — plain-English quick start for Deck users.
+
 ## [2.5.0] "Green Monster" - 2026-06-29
 
 Steam Deck release — gamepad-friendly UI, voice chat, and a one-shot installer.
