@@ -2,6 +2,17 @@
 
 All notable changes to Chahlie will be documented in this file.
 
+## [2.5.2] "Fenway Faithful" - 2026-06-29
+
+Installer fix for real Steam Decks — **no longer blocks on pacman**.
+
+### Fixed
+
+- `release/install.sh` detects audio tools already shipped on SteamOS
+  (`pw-record`, `espeak-ng`) and **skips pacman** when present.
+- Pacman failure (read-only root) is a warning, not a hard exit — install continues.
+- Removed unnecessary `python-pip` pacman dependency (venv includes pip).
+
 ## [2.5.1] "Tap the Glass" - 2026-06-29
 
 Fixes Steam Deck install pain — **no PyAudio compile**, downloadable release tarball.

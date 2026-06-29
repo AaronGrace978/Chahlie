@@ -78,9 +78,10 @@ STT uses Google Web Speech by default (needs Wi‑Fi). For offline speech, insta
 | Problem | Fix |
 |---------|-----|
 | `gcc failed` / PyAudio error | Use the **release tarball** — PyAudio is no longer required |
-| No mic | `sudo pacman -S pipewire-pulse` |
-| No voice out | `sudo pacman -S espeak-ng` |
-| Install script needs sudo | Normal on Steam Deck — it installs system audio packages |
+| Install stops at pacman | Re-run `./install.sh` from v2.5.2+ — skips pacman when tools already exist |
+| `steamos-readonly` / pacman fails | Install continues anyway; typed chat works, voice is optional |
+| No mic | Usually pre-installed on SteamOS. If missing: `sudo steamos-readonly disable && sudo pacman -S pipewire-pulse` |
+| No voice out | `sudo pacman -S espeak-ng` (often already installed) |
 | Slow responses | Use `qwen3.5:cloud` or local `qwen3:8b` |
 
 ## Dev / git install (optional)

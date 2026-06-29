@@ -10,26 +10,49 @@ VENV_DIR="$INSTALL_DIR/venv"
 BIN_LINK="$HOME/.local/bin/chahlie-deck"
 RUN_LINK="$HOME/.local/bin/run-chahlie-deck"
 
+have_cmd() { command -v "$1" &>/dev/null; }
+
 echo ""
 echo "  ⚾ Chahlie Steam Deck Edition"
 echo "  ============================="
 echo ""
 
-# --- System packages (SteamOS / Arch) — prebuilt, no gcc needed ---
-if command -v pacman &>/dev/null; then
-    echo "→ Installing system audio packages (sudo password may be needed)..."
-    sudo pacman -S --needed --noconfirm \
-        pipewire-pulse \
-        espeak-ng \
-        python-pip \
-        2>/dev/null || {
+# --- Check what's already on the Deck (SteamOS ships most of this) ---
+MISSING_PKGS=()
+have_cmd pw-record || have_cmd parecord || MISSING_PKGS+=("pipewire-pulse")
+have_cmd espeak-ng || have_cmd espeak || MISSING_PKGS+=("espeak-ng")
+
+if [[ ${#MISSING_PKGS[@]} -eq 0 ]]; then
+    echo "→ Audio tools already present (voice ready)."
+elif command -v pacman &>/dev/null; then
+    echo "→ Some audio tools missing: ${MISSING_PKGS[*]}"
+    echo "  Trying to install via pacman (sudo password may be needed)..."
+    echo ""
+    if sudo pacman -S --needed --noconfirm "${MISSING_PKGS[@]}"; then
+        echo "→ System packages installed."
+    else
         echo ""
-        echo "  Could not install system packages automatically."
-        echo "  Run this manually, then re-run ./install.sh:"
-        echo "    sudo pacman -S pipewire-pulse espeak-ng python-pip"
+        echo "  ⚠ Could not install via pacman (SteamOS root is often read-only)."
+        echo "  Chahlie will still install — you can type instead of using voice."
         echo ""
-        exit 1
-    }
+        echo "  If you want voice later, try in Desktop Mode:"
+        echo "    sudo steamos-readonly disable"
+        echo "    sudo pacman -S --needed ${MISSING_PKGS[*]}"
+        echo "    sudo steamos-readonly enable"
+        echo ""
+        echo "  Press Enter to continue install anyway, or Ctrl+C to abort."
+        read -r _
+    fi
+else
+    echo "→ Audio tools missing and pacman not found — voice may not work."
+    echo "  Chahlie will still install for typed chat."
+fi
+
+if ! have_cmd python3; then
+    echo ""
+    echo "  ✗ python3 is required but not found."
+    echo "    Steam Deck should have it — try: sudo pacman -S python"
+    exit 1
 fi
 
 mkdir -p "$INSTALL_DIR" "$HOME/.local/bin"
@@ -67,7 +90,6 @@ LAUNCHER
 chmod +x "$BIN_LINK"
 cp "$BIN_LINK" "$RUN_LINK" 2>/dev/null || true
 
-# Copy run script into install dir too
 cp "$ROOT/run-chahlie-deck.sh" "$INSTALL_DIR/run.sh" 2>/dev/null || true
 chmod +x "$INSTALL_DIR/run.sh" 2>/dev/null || true
 
@@ -88,6 +110,17 @@ DESKTOP
 
 echo ""
 echo "  ✓ Installed successfully!"
+echo ""
+if have_cmd pw-record || have_cmd parecord; then
+    echo "  Voice in:  mic ready"
+else
+    echo "  Voice:     mic not detected (typed chat still works)"
+fi
+if have_cmd espeak-ng || have_cmd espeak; then
+    echo "  Voice out: speaker ready"
+else
+    echo "  Voice out: espeak not found (toggle TTS off or install espeak-ng)"
+fi
 echo ""
 echo "  Next steps:"
 echo "    1. nano $INSTALL_DIR/.env     # add OLLAMA_API_KEY"
