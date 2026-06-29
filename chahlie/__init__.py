@@ -7,5 +7,5 @@ Created with love for the Boston dev community.
 NOW WITH MEMORY, SELF-IMPROVEMENT, AND SELF-VERIFICATION!
 """
 
-__version__ = "2.6.1"
-__codename__ = "Fenway at Night"
+__version__ = "2.6.2"
+__codename__ = "Green Monster GUI"

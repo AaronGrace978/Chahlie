@@ -2,6 +2,14 @@
 
 All notable changes to Chahlie will be documented in this file.
 
+## [2.6.2] - 2026-06-29
+
+### Fixed
+
+- **Tauri on Steam Deck** — prefer system `python3` over broken `~/.local/share/chahlie/venv`; validate Python before spawn; auto pip install on first launch.
+- **EGL crash** — document `WEBKIT_DISABLE_DMABUF_RENDERER=1` + `Launch-Chahlie-Tauri.sh` wrapper.
+- Backend startup errors now surface in the UI.
+
 ## [2.6.1] "Fenway at Night" - 2026-06-29
 
 ### Added

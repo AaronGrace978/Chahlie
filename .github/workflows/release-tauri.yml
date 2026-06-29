@@ -44,6 +44,8 @@ jobs:
           files: |
             chahlie-tauri/src-tauri/target/release/bundle/**/*.AppImage
             chahlie-tauri/src-tauri/target/release/bundle/**/*.deb
+            release/Launch-Chahlie-Tauri.sh
+            scripts/install-tauri-deck.sh
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -25,6 +25,37 @@ Outputs (under `chahlie-tauri/src-tauri/target/release/bundle/`):
 - `Chahlie_*.AppImage` — download, `chmod +x`, double-click
 - `chahlie_*.deb` — install with your package manager
 
+## Steam Deck AppImage (recommended launcher)
+
+The AppImage needs **system Python 3** + one-time pip deps. Do **not** rely on an old broken venv.
+
+**One-time setup in Konsole:**
+
+```bash
+cd ~/Downloads
+curl -L -O https://raw.githubusercontent.com/AaronGrace978/Chahlie/main/scripts/install-tauri-deck.sh
+bash install-tauri-deck.sh
+```
+
+**Launch (every time):**
+
+```bash
+export WEBKIT_DISABLE_DMABUF_RENDERER=1
+export CHAHLIE_PYTHON=/usr/bin/python3
+./Chahlie_2.6.1_amd64.AppImage
+```
+
+Or use the bundled launcher script from the repo: `release/Launch-Chahlie-Tauri.sh`
+
+### EGL / display crash on Deck
+
+If you see `EGL_BAD_PARAMETER`, run in **Desktop Mode** with:
+
+```bash
+export WEBKIT_DISABLE_DMABUF_RENDERER=1
+export GDK_BACKEND=x11
+```
+
 ## Add to Steam (no Konsole after install)
 
 1. Install the AppImage or `.deb`

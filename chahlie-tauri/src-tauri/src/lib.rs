@@ -14,6 +14,7 @@ const DEFAULT_PORT: u16 = 18765;
 struct BackendState {
     port: u16,
     child: Mutex<Option<Child>>,
+    startup_error: Mutex<Option<String>>,
 }
 
 fn chahlie_root(app: &tauri::App) -> PathBuf {
@@ -33,20 +34,124 @@ fn chahlie_root(app: &tauri::App) -> PathBuf {
         .unwrap_or(manifest)
 }
 
-fn find_python() -> PathBuf {
+fn python_runs(path: &Path) -> bool {
+    Command::new(path)
+        .arg("--version")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+fn python_candidates() -> Vec<PathBuf> {
+    let mut out: Vec<PathBuf> = Vec::new();
+    let mut push = |p: PathBuf| {
+        if !out.iter().any(|x| x == &p) {
+            out.push(p);
+        }
+    };
+
     if let Ok(py) = std::env::var("CHAHLIE_PYTHON") {
-        let path = PathBuf::from(py);
-        if path.exists() {
-            return path;
-        }
+        push(PathBuf::from(py));
     }
+
+    // AppImage / Steam Deck: system Python is most reliable.
+    if std::env::var("APPIMAGE").is_ok() {
+        push(PathBuf::from("/usr/bin/python3"));
+        push(PathBuf::from("python3"));
+    }
+
+    push(PathBuf::from("python3"));
+    push(PathBuf::from("/usr/bin/python3"));
+
     if let Some(home) = dirs::home_dir() {
-        let venv_py = home.join(".local/share/chahlie/venv/bin/python");
-        if venv_py.exists() {
-            return venv_py;
+        push(home.join(".local/share/chahlie/venv/bin/python"));
+    }
+
+    out.retain(|p| python_runs(p));
+    out
+}
+
+fn deps_installed(python: &Path) -> bool {
+    Command::new(python)
+        .args(["-c", "import fastapi, uvicorn"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+fn pip_install_deps(python: &Path, root: &Path) -> Result<(), String> {
+    let req = root.join("requirements-tauri.txt");
+    let mut cmd = Command::new(python);
+    cmd.args(["-m", "pip", "install", "--user", "--upgrade"]);
+    if req.is_file() {
+        cmd.arg("-r").arg(&req);
+    } else {
+        cmd.args([
+            "fastapi",
+            "uvicorn[standard]",
+            "ollama",
+            "anthropic",
+            "rich",
+            "python-dotenv",
+            "requests",
+            "click",
+            "textual",
+        ]);
+    }
+    // SteamOS Python 3.13+
+    cmd.arg("--break-system-packages");
+
+    let status = cmd
+        .status()
+        .map_err(|e| format!("pip install failed: {e}"))?;
+    if !status.success() {
+        // Retry without break-system-packages for older distros.
+        let mut retry = Command::new(python);
+        retry.args(["-m", "pip", "install", "--user", "--upgrade"]);
+        if req.is_file() {
+            retry.arg("-r").arg(&req);
+        } else {
+            retry.args([
+                "fastapi",
+                "uvicorn[standard]",
+                "ollama",
+                "anthropic",
+                "rich",
+                "python-dotenv",
+                "requests",
+                "click",
+                "textual",
+            ]);
+        }
+        if !retry.status().map(|s| s.success()).unwrap_or(false) {
+            return Err(
+                "Could not install Python packages.\n\
+                 Run: bash scripts/install-tauri-deck.sh"
+                    .into(),
+            );
         }
     }
-    PathBuf::from("python3")
+    Ok(())
+}
+
+fn ensure_python_deps(python: &Path, root: &Path) -> Result<(), String> {
+    if deps_installed(python) {
+        return Ok(());
+    }
+    eprintln!("Chahlie: installing Python dependencies (one time)…");
+    pip_install_deps(python, root)?;
+    if !deps_installed(python) {
+        return Err(
+            "Python deps still missing after install.\n\
+             Run: bash scripts/install-tauri-deck.sh"
+                .into(),
+        );
+    }
+    Ok(())
 }
 
 fn health_ok(port: u16) -> bool {
@@ -68,21 +173,20 @@ fn health_ok(port: u16) -> bool {
 }
 
 fn wait_for_health(port: u16) -> bool {
-    let url = format!("http://127.0.0.1:{port}/health");
     for _ in 0..40 {
         if health_ok(port) {
             return true;
         }
         std::thread::sleep(Duration::from_millis(250));
     }
-    let _ = url; // kept for logging clarity in errors
     false
 }
 
-fn spawn_backend(root: &Path, port: u16) -> Result<Child, String> {
-    let python = find_python();
-    let mut cmd = Command::new(&python);
-    cmd.arg("-m")
+fn try_spawn(python: &Path, root: &Path, port: u16) -> Result<Child, String> {
+    ensure_python_deps(python, root)?;
+
+    let child = Command::new(python)
+        .arg("-m")
         .arg("chahlie.tauri_server")
         .arg("--port")
         .arg(port.to_string())
@@ -103,24 +207,45 @@ fn spawn_backend(root: &Path, port: u16) -> Result<Child, String> {
             }),
         )
         .stdout(Stdio::null())
-        .stderr(Stdio::piped());
-
-    let child = cmd.spawn().map_err(|e| {
-        format!(
-            "Failed to start Python backend ({python:?}): {e}\n\
-             Install deps: pip install -r requirements-tauri.txt"
-        )
-    })?;
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("spawn failed ({python:?}): {e}"))?;
 
     if !wait_for_health(port) {
+        return Err(format!(
+            "Backend did not respond on port {port} (python: {python:?})"
+        ));
+    }
+    Ok(child)
+}
+
+fn spawn_backend(root: &Path, port: u16) -> Result<Child, String> {
+    let candidates = python_candidates();
+    if candidates.is_empty() {
         return Err(
-            "Chahlie backend did not start. Run:\n  \
-             pip install -r requirements-tauri.txt"
+            "No working python3 found.\n\
+             Install: sudo pacman -S python python-pip"
                 .into(),
         );
     }
 
-    Ok(child)
+    let mut errors: Vec<String> = Vec::new();
+    for python in &candidates {
+        match try_spawn(python, root, port) {
+            Ok(child) => return Ok(child),
+            Err(e) => errors.push(format!("  {python:?}: {e}")),
+        }
+    }
+
+    Err(format!(
+        "Could not start Chahlie Python backend.\n{}\n\n\
+         Steam Deck fix — run in Konsole:\n  \
+         bash scripts/install-tauri-deck.sh\n  \
+         export WEBKIT_DISABLE_DMABUF_RENDERER=1\n  \
+         export CHAHLIE_PYTHON=/usr/bin/python3\n  \
+         ./Chahlie_*_amd64.AppImage",
+        errors.join("\n")
+    ))
 }
 
 fn stop_backend(state: &BackendState) {
@@ -135,6 +260,11 @@ fn stop_backend(state: &BackendState) {
 #[tauri::command]
 fn backend_url(state: State<'_, BackendState>) -> String {
     format!("http://127.0.0.1:{}", state.port)
+}
+
+#[tauri::command]
+fn backend_error(state: State<'_, BackendState>) -> Option<String> {
+    state.startup_error.lock().ok()?.clone()
 }
 
 #[tauri::command]
@@ -154,12 +284,17 @@ pub fn run() {
     let backend_state = BackendState {
         port,
         child: Mutex::new(None),
+        startup_error: Mutex::new(None),
     };
 
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(backend_state)
-        .invoke_handler(tauri::generate_handler![backend_url, chahlie_data_dir])
+        .invoke_handler(tauri::generate_handler![
+            backend_url,
+            backend_error,
+            chahlie_data_dir
+        ])
         .setup(move |app| {
             let root = chahlie_root(app);
             let state = app.state::<BackendState>();
@@ -171,6 +306,9 @@ pub fn run() {
                 }
                 Err(err) => {
                     eprintln!("{err}");
+                    if let Ok(mut guard) = state.startup_error.lock() {
+                        *guard = Some(err);
+                    }
                 }
             }
             Ok(())

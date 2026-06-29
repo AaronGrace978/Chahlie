@@ -22,6 +22,8 @@ export type ChatMessage = {
 
 export async function getBackendUrl(): Promise<string> {
   const { invoke } = await import("@tauri-apps/api/core");
+  const err = await invoke<string | null>("backend_error");
+  if (err) throw new Error(err);
   return invoke<string>("backend_url");
 }
 
