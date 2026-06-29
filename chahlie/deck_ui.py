@@ -172,9 +172,12 @@ class SetupScreen(ModalScreen[str]):
         with Vertical(id="setup-box"):
             yield Label("⚾ Welcome to Chahlie!", id="setup-title")
             yield Label(
-                "Paste your [bold]free Ollama API key[/bold] to start chatting.\n"
-                "Get one at: [link=https://ollama.com/settings/keys]ollama.com/settings/keys[/link]",
+                "Paste your free Ollama API key to start chatting.",
                 id="setup-help",
+            )
+            yield Label(
+                "Get a free key at ollama.com/settings/keys",
+                id="setup-url",
             )
             yield Input(
                 placeholder="Paste API key here…",
