@@ -6,7 +6,30 @@ Supports Ollama Cloud and local Ollama backends
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+
+def _load_env_files() -> None:
+    """Load environment from the project `.env` plus the Deck/Tauri config file.
+
+    The desktop shells (Tauri + Steam Deck) persist the API key to
+    ``~/.local/share/chahlie/.env`` (overridable via ``CHAHLIE_ENV_FILE``).
+    Without loading that file here, a previously saved key is ignored on a
+    cold start and the welcome/setup screen wrongly reappears every launch.
+    """
+    # Project-local .env (developer workflow) takes priority.
+    load_dotenv()
+
+    candidate = os.getenv("CHAHLIE_ENV_FILE", "").strip()
+    if not candidate:
+        candidate = os.path.join(
+            os.path.expanduser("~"), ".local", "share", "chahlie", ".env"
+        )
+    candidate = os.path.expanduser(candidate)
+    if os.path.isfile(candidate):
+        # override=False so explicit os.environ / project .env values win.
+        load_dotenv(candidate, override=False)
+
+
+_load_env_files()
 
 # Backend Configuration
 # Options: "ollama-cloud" (default), "ollama-local", or "anthropic"

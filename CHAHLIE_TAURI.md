@@ -25,27 +25,29 @@ Outputs (under `chahlie-tauri/src-tauri/target/release/bundle/`):
 - `Chahlie_*.AppImage` — download, `chmod +x`, double-click
 - `chahlie_*.deb` — install with your package manager
 
-## Steam Deck AppImage (recommended launcher)
+## Steam Deck AppImage (recommended)
 
-The AppImage needs **system Python 3** + one-time pip deps. Do **not** rely on an old broken venv.
+The AppImage is **self-bootstrapping**. On first launch it creates its own
+Python virtualenv at `~/.local/share/chahlie/venv` and installs the backend
+deps there — no `pip`, no `sudo`, no `pacman`, and no `CHAHLIE_PYTHON` needed.
+A venv under `$HOME` sidesteps SteamOS's read-only root and PEP 668.
 
-**One-time setup in Konsole:**
+**Launch:**
 
 ```bash
-cd ~/Downloads
-curl -L -O https://raw.githubusercontent.com/AaronGrace978/Chahlie/main/scripts/install-tauri-deck.sh
-bash install-tauri-deck.sh
+chmod +x Chahlie_2.6.3_amd64.AppImage
+./Chahlie_2.6.3_amd64.AppImage
 ```
 
-**Launch (every time):**
+If the window stays black on the Deck, run it in Desktop Mode with:
 
 ```bash
 export WEBKIT_DISABLE_DMABUF_RENDERER=1
-export CHAHLIE_PYTHON=/usr/bin/python3
-./Chahlie_2.6.1_amd64.AppImage
+./Chahlie_2.6.3_amd64.AppImage
 ```
 
-Or use the bundled launcher script from the repo: `release/Launch-Chahlie-Tauri.sh`
+To force a specific interpreter, set `CHAHLIE_PYTHON=/path/to/python`.
+The repo also ships a convenience launcher: `release/Launch-Chahlie-Tauri.sh`.
 
 ### EGL / display crash on Deck
 
