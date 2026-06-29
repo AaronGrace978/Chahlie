@@ -30,6 +30,7 @@ from .config import (
     OLLAMA_LOCAL_MODEL,
     VOICE_TTS_ENABLED,
 )
+from .deck_setup import needs_api_key_setup, reload_config, save_api_key
 from .personality import get_greeting
 from .tools import set_approval_hook
 from .voice import VoiceManager, voice_available
@@ -120,6 +121,87 @@ class ApprovalScreen(ModalScreen[bool]):
 
     def action_deny(self) -> None:
         self.dismiss(False)
+
+
+class SetupScreen(ModalScreen[str]):
+    """First-run welcome — paste API key, then go."""
+
+    CSS = f"""
+    SetupScreen {{
+        align: center middle;
+    }}
+    #setup-box {{
+        width: 92%;
+        max-width: 78;
+        height: auto;
+        background: {NAVY};
+        border: thick {GREEN};
+        padding: 1 2;
+    }}
+    #setup-title {{
+        text-style: bold;
+        color: {ACCENT};
+        text-align: center;
+        width: 100%;
+        margin-bottom: 1;
+    }}
+    #api-input {{
+        margin: 1 0;
+        border: solid {ACCENT};
+        background: #0A1A2E;
+    }}
+    #start-btn {{
+        background: {GREEN};
+        color: white;
+        width: 100%;
+        margin-top: 1;
+    }}
+  #skip-btn {{
+        background: {MUTED};
+        color: white;
+        width: 100%;
+        margin-top: 1;
+    }}
+    """
+
+    BINDINGS = [
+        Binding("escape", "skip", "Skip", show=False),
+    ]
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="setup-box"):
+            yield Label("⚾ Welcome to Chahlie!", id="setup-title")
+            yield Label(
+                "Paste your [bold]free Ollama API key[/bold] to start chatting.\n"
+                "Get one at: [link=https://ollama.com/settings/keys]ollama.com/settings/keys[/link]",
+                id="setup-help",
+            )
+            yield Input(
+                placeholder="Paste API key here…",
+                password=True,
+                id="api-input",
+            )
+            yield Button("▶  Start Chahlie", id="start-btn", variant="success")
+            yield Button("Skip for now (typed chat won't work)", id="skip-btn")
+
+    def on_mount(self) -> None:
+        self.query_one("#api-input", Input).focus()
+
+    @on(Button.Pressed, "#start-btn")
+    @on(Input.Submitted, "#api-input")
+    def _start(self, event=None) -> None:
+        key = self.query_one("#api-input", Input).value.strip()
+        if not key or len(key) < 8:
+            self.app.bell()
+            return
+        self.dismiss(key)
+
+    @on(Button.Pressed, "#skip-btn")
+    def _skip(self) -> None:
+        self.dismiss("")
+
+    def action_skip(self) -> None:
+        self.dismiss("")
 
 
 class DeckStatusBar(Static):
@@ -286,30 +368,43 @@ if TEXTUAL_AVAILABLE:
 
         def on_mount(self) -> None:
             self._loop = asyncio.get_running_loop()
+            self.call_later(self._boot)
+
+        async def _boot(self) -> None:
+            if needs_api_key_setup():
+                key = await self.push_screen_wait(SetupScreen())
+                if key:
+                    save_api_key(key)
+                    reload_config()
+                    self._log_system("API key saved. You're good to go, kehd!")
+                else:
+                    self._log_system(
+                        "[yellow]No API key yet — get one at ollama.com/settings/keys[/yellow]"
+                    )
+            self._start_session()
+
+        def _start_session(self) -> None:
             set_approval_hook(self._approval_prompter)
             self.agent = ChahlieAgent()
             self._refresh_status()
             self._log_system(get_greeting())
             self._log_system(
-                "Deck controls: F1 Help · F2 Clear · F3 Memory · "
-                "F4 Talk · F5 TTS · Enter send"
+                "Type below or tap 🎤 Talk · F1 Help · F2 Clear · F3 Memory"
             )
             if voice_available():
                 self._log_system(f"Voice: {self.voice.status_line()}")
             else:
-                self._log_system(
-                    "[dim]Voice extras not installed — "
-                    "pip install -r requirements-deck.txt[/dim]"
-                )
-            primer = self.agent.get_primer_summary()
-            if primer.get("primed"):
-                self._log_system(
-                    f"Project: {primer.get('name')} "
-                    f"({primer.get('language', '?')} / {primer.get('framework', '?')})"
-                )
-            if self.agent.plugin_warnings:
-                for w in self.agent.plugin_warnings:
-                    self._log_system(f"[yellow]plugin: {w}[/yellow]")
+                self._log_system("[dim]Voice: type to chat (mic optional)[/dim]")
+            if self.agent:
+                primer = self.agent.get_primer_summary()
+                if primer.get("primed"):
+                    self._log_system(
+                        f"Project: {primer.get('name')} "
+                        f"({primer.get('language', '?')} / {primer.get('framework', '?')})"
+                    )
+                if self.agent.plugin_warnings:
+                    for w in self.agent.plugin_warnings:
+                        self._log_system(f"[yellow]plugin: {w}[/yellow]")
             self.query_one("#user-input", Input).focus()
 
         def _chat(self) -> RichLog:

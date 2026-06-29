@@ -167,12 +167,9 @@ python run.py
 
 ### Steam Deck Edition (v2.5)
 
-**Download and run** — no git, no compiler:
+**Extract → double-click `START-CHAHLIE.sh` → paste API key in the UI.**
 
-1. Grab `chahlie-deck-*-linux-x86_64.tar.gz` from [GitHub Releases](https://github.com/AaronGrace978/Chahlie/releases)
-2. Extract, run `./install.sh`, add your API key, launch `chahlie-deck`
-
-See **[STEAM_DECK.md](STEAM_DECK.md)** for the full walkthrough.
+Download from [GitHub Releases](https://github.com/AaronGrace978/Chahlie/releases). See **[STEAM_DECK.md](STEAM_DECK.md)**.
 
 ## Usage
 

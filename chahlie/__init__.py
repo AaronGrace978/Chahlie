@@ -7,5 +7,5 @@ Created with love for the Boston dev community.
 NOW WITH MEMORY, SELF-IMPROVEMENT, AND SELF-VERIFICATION!
 """
 
-__version__ = "2.5.2"
-__codename__ = "Fenway Faithful"
+__version__ = "2.5.3"
+__codename__ = "Bleacher Seats"

@@ -592,15 +592,14 @@ def main(version, about, backend, model, no_memory, no_stream, no_approval, llm_
 
     if deck:
         os.environ["CHAHLIE_DECK_MODE"] = "true"
-        if not check_backend():
-            sys.exit(1)
+        # Deck UI has its own setup wizard — don't block on missing API key here.
         try:
             from .deck_ui import run_deck
         except ImportError:
             ui.print_error(
                 "Steam Deck UI needs Textual. Run:\n"
-                "  pip install -r requirements-deck.txt\n"
-                "Then try again with --deck."
+                "  ./START-CHAHLIE.sh\n"
+                "It installs everything automatically on first launch."
             )
             sys.exit(1)
         run_deck()

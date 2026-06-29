@@ -1,44 +1,28 @@
-Chahlie Steam Deck Edition — Install Guide
-==========================================
+╔══════════════════════════════════════════════════════════╗
+║           CHAHLIE FOR STEAM DECK — QUICK START           ║
+╚══════════════════════════════════════════════════════════╝
 
-DOWNLOAD → EXTRACT → INSTALL → RUN
+  1. Extract this folder anywhere (e.g. Downloads)
 
-1. Download the release file:
-   chahlie-deck-VERSION-linux-x86_64.tar.gz
-   from GitHub Releases:
-   https://github.com/AaronGrace978/Chahlie/releases
+  2. Double-click:  START-CHAHLIE.sh
+     (or right-click → Execute)
 
-2. Open Konsole (Desktop Mode) and extract:
+     First launch installs automatically (~1 min).
+     The UI opens — paste your free Ollama API key when asked.
 
-   cd ~/Downloads
-   tar -xzf chahlie-deck-*-linux-x86_64.tar.gz
-   cd chahlie-deck-*-linux
+  3. Get a free API key:  https://ollama.com/settings/keys
 
-3. Run the installer (one time):
+  That's it. No install.sh. No pacman. No terminal commands required.
 
-   ./install.sh
+  ─────────────────────────────────────────────────────────
+  TROUBLESHOOTING
 
-   This installs Python deps WITHOUT compiling PyAudio.
-   Voice uses your Deck's built-in mic tools (pw-record + espeak-ng).
+  • Can't double-click? Open Konsole and run:
+      cd ~/Downloads/chahlie-deck-*-linux
+      ./START-CHAHLIE.sh
 
-4. Add your Ollama API key:
+  • After first run, use the "Start Chahlie" icon on your Desktop.
 
-   nano ~/.local/share/chahlie/.env
-   # set OLLAMA_API_KEY=your-key-here
+  • Talk to Chahlie: press F4 or tap the 🎤 Talk button.
 
-5. Launch Chahlie:
-
-   chahlie-deck
-
-   Or double-click "Chahlie (Steam Deck)" in your app menu.
-
-6. (Optional) Add to Steam Gaming Mode:
-   Steam → Add Game → Non-Steam Game → chahlie-deck
-
-TROUBLESHOOTING
----------------
-- Mic not working:  sudo pacman -S pipewire-pulse
-- No voice out:     sudo pacman -S espeak-ng
-- Install failed:   make sure you're in Desktop Mode with internet
-
-Need help? See STEAM_DECK.md in this folder.
+  Made by Cursor Boston ⚾

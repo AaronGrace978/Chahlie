@@ -25,11 +25,13 @@ tar -cf - -C "$ROOT" \
   --exclude='.chahlie' \
   . | tar -xf - -C "$STAGE"
 
-# Standalone install + run scripts at tarball root
+# Standalone launchers at tarball root
+cp "$ROOT/release/START-CHAHLIE.sh" "$STAGE/START-CHAHLIE.sh"
 cp "$ROOT/release/install.sh" "$STAGE/install.sh"
 cp "$ROOT/release/run-chahlie-deck.sh" "$STAGE/run-chahlie-deck.sh"
 cp "$ROOT/release/INSTALL.txt" "$STAGE/INSTALL.txt"
-chmod +x "$STAGE/install.sh" "$STAGE/run-chahlie-deck.sh"
+cp "$ROOT/release/INSTALL.txt" "$STAGE/README-FIRST.txt"
+chmod +x "$STAGE/START-CHAHLIE.sh" "$STAGE/install.sh" "$STAGE/run-chahlie-deck.sh"
 
 mkdir -p "$ROOT/dist"
 tar -czf "$ARCHIVE" -C "$ROOT/dist" "chahlie-deck-${VERSION}-linux"
@@ -43,4 +45,4 @@ echo ""
 echo "Upload to GitHub Releases, or copy to your Deck and run:"
 echo "  tar -xzf chahlie-deck-${VERSION}-linux-x86_64.tar.gz"
 echo "  cd chahlie-deck-${VERSION}-linux"
-echo "  ./install.sh"
+echo "  ./START-CHAHLIE.sh    # double-click this file"

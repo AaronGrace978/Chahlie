@@ -2,6 +2,21 @@
 
 All notable changes to Chahlie will be documented in this file.
 
+## [2.5.3] "Bleacher Seats" - 2026-06-29
+
+One-click Steam Deck experience — **double-click and the UI opens**.
+
+### Added
+
+- **`START-CHAHLIE.sh`** — single launcher; auto-installs on first run, then opens the TUI.
+  No separate `install.sh` step. Creates Desktop shortcut automatically.
+- **In-app setup wizard** — welcome screen to paste your Ollama API key (no `nano` needed).
+- **`README-FIRST.txt`** in the release tarball with plain instructions.
+
+### Changed
+
+- Deck mode skips terminal backend checks — setup happens inside the UI.
+
 ## [2.5.2] "Fenway Faithful" - 2026-06-29
 
 Installer fix for real Steam Decks — **no longer blocks on pacman**.
