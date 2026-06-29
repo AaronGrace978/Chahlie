@@ -17,13 +17,32 @@ struct BackendState {
     startup_error: Mutex<Option<String>>,
 }
 
+/// Locate the directory that contains the `chahlie/` Python package, so we can
+/// run `python -m chahlie.tauri_server` with that dir on `PYTHONPATH`.
+fn root_has_package(dir: &Path) -> bool {
+    dir.join("chahlie/__init__.py").exists()
+}
+
 fn chahlie_root(app: &tauri::App) -> PathBuf {
     if let Ok(root) = std::env::var("CHAHLIE_ROOT") {
-        return PathBuf::from(root);
+        let p = PathBuf::from(root);
+        if root_has_package(&p) {
+            return p;
+        }
     }
     if let Ok(res) = app.path().resource_dir() {
-        if res.join("chahlie/__init__.py").exists() {
-            return res;
+        // Tauri rewrites `../` in resource paths to `_up_`, so a resource
+        // declared as `../../chahlie` is bundled under
+        // `<resource_dir>/_up_/_up_/chahlie`. Probe the likely depths.
+        for sub in ["", "_up_/_up_", "_up_", "_up_/_up_/_up_"] {
+            let candidate = if sub.is_empty() {
+                res.clone()
+            } else {
+                res.join(sub)
+            };
+            if root_has_package(&candidate) {
+                return candidate;
+            }
         }
     }
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -34,9 +53,26 @@ fn chahlie_root(app: &tauri::App) -> PathBuf {
         .unwrap_or(manifest)
 }
 
+/// Build a `Command` for an external Python interpreter with the AppImage's
+/// injected environment scrubbed. The bundled AppRun runtime exports
+/// `PYTHONHOME`, `PYTHONPATH` and `LD_LIBRARY_PATH` pointing inside the mounted
+/// image; left in place they crash any *system* Python we spawn with
+/// "No module named 'encodings'". Callers re-add `PYTHONPATH` when they need it.
+fn py_command(program: &Path) -> Command {
+    let mut cmd = Command::new(program);
+    cmd.env_remove("PYTHONHOME");
+    cmd.env_remove("PYTHONPATH");
+    cmd.env_remove("PYTHONSTARTUP");
+    cmd.env_remove("PYTHONEXECUTABLE");
+    cmd.env_remove("LD_LIBRARY_PATH");
+    cmd
+}
+
 fn python_runs(path: &Path) -> bool {
-    Command::new(path)
-        .arg("--version")
+    // Use `-c import` rather than `--version`: a poisoned PYTHONHOME still lets
+    // `--version` exit 0 while real imports fail, so version alone is a lie.
+    py_command(path)
+        .args(["-c", "import sys"])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
@@ -44,37 +80,109 @@ fn python_runs(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
+/// Packages the sidecar needs when no requirements file ships with the bundle.
+const DEFAULT_PKGS: &[&str] = &[
+    "fastapi",
+    "uvicorn[standard]",
+    "ollama",
+    "anthropic",
+    "rich",
+    "python-dotenv",
+    "requests",
+    "click",
+    "textual",
+];
+
+fn is_venv_python(python: &Path) -> bool {
+    py_command(python)
+        .args([
+            "-c",
+            "import sys; sys.exit(0 if sys.prefix != sys.base_prefix else 1)",
+        ])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+fn venv_python_path() -> Option<PathBuf> {
+    dirs::home_dir().map(|h| h.join(".local/share/chahlie/venv/bin/python"))
+}
+
+/// Create the managed virtualenv on demand. A venv under $HOME sidesteps
+/// read-only SteamOS system dirs and PEP 668 ("externally managed") errors,
+/// which is the most common reason installs fail on the Deck.
+fn ensure_venv() -> Option<PathBuf> {
+    let py = venv_python_path()?;
+    if python_runs(&py) {
+        return Some(py);
+    }
+    let dir = py.parent()?.parent()?.to_path_buf();
+    if let Some(parent) = dir.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let base = ["python3", "/usr/bin/python3"]
+        .iter()
+        .map(PathBuf::from)
+        .find(|p| python_runs(p))?;
+    let made = py_command(&base)
+        .arg("-m")
+        .arg("venv")
+        .arg(&dir)
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    if !made {
+        // Some distros ship a stripped venv module; allow system packages.
+        let _ = py_command(&base)
+            .arg("-m")
+            .arg("venv")
+            .arg("--system-site-packages")
+            .arg(&dir)
+            .status();
+    }
+    if python_runs(&py) {
+        Some(py)
+    } else {
+        None
+    }
+}
+
 fn python_candidates() -> Vec<PathBuf> {
     let mut out: Vec<PathBuf> = Vec::new();
     let mut push = |p: PathBuf| {
-        if !out.iter().any(|x| x == &p) {
+        if python_runs(&p) && !out.iter().any(|x| x == &p) {
             out.push(p);
         }
     };
 
-    if let Ok(py) = std::env::var("CHAHLIE_PYTHON") {
+    // 1. Explicit override always wins; don't build a venv we won't use.
+    let explicit = std::env::var("CHAHLIE_PYTHON").ok();
+    if let Some(py) = &explicit {
         push(PathBuf::from(py));
     }
 
-    // AppImage / Steam Deck: system Python is most reliable.
-    if std::env::var("APPIMAGE").is_ok() {
-        push(PathBuf::from("/usr/bin/python3"));
-        push(PathBuf::from("python3"));
+    // 2. Managed venv (created on demand) — most reliable on the Steam Deck.
+    //    Skip auto-creation when the user pinned their own interpreter.
+    if explicit.is_none() {
+        if let Some(venv) = ensure_venv() {
+            push(venv);
+        }
+    } else if let Some(venv) = venv_python_path() {
+        // Reuse an existing managed venv as a fallback, but don't create one.
+        push(venv);
     }
 
+    // 3. System interpreters as a fallback.
     push(PathBuf::from("python3"));
     push(PathBuf::from("/usr/bin/python3"));
 
-    if let Some(home) = dirs::home_dir() {
-        push(home.join(".local/share/chahlie/venv/bin/python"));
-    }
-
-    out.retain(|p| python_runs(p));
     out
 }
 
 fn deps_installed(python: &Path) -> bool {
-    Command::new(python)
+    py_command(python)
         .args(["-c", "import fastapi, uvicorn"])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -83,57 +191,45 @@ fn deps_installed(python: &Path) -> bool {
         .unwrap_or(false)
 }
 
+fn run_pip(python: &Path, req: &Path, extra: &[&str]) -> bool {
+    let mut cmd = py_command(python);
+    cmd.args(["-m", "pip", "install", "--upgrade"]);
+    for flag in extra {
+        cmd.arg(flag);
+    }
+    if req.is_file() {
+        cmd.arg("-r").arg(req);
+    } else {
+        cmd.args(DEFAULT_PKGS);
+    }
+    cmd.status().map(|s| s.success()).unwrap_or(false)
+}
+
 fn pip_install_deps(python: &Path, root: &Path) -> Result<(), String> {
     let req = root.join("requirements-tauri.txt");
-    let mut cmd = Command::new(python);
-    cmd.args(["-m", "pip", "install", "--user", "--upgrade"]);
-    if req.is_file() {
-        cmd.arg("-r").arg(&req);
-    } else {
-        cmd.args([
-            "fastapi",
-            "uvicorn[standard]",
-            "ollama",
-            "anthropic",
-            "rich",
-            "python-dotenv",
-            "requests",
-            "click",
-            "textual",
-        ]);
-    }
-    // SteamOS Python 3.13+
-    cmd.arg("--break-system-packages");
 
-    let status = cmd
-        .status()
-        .map_err(|e| format!("pip install failed: {e}"))?;
-    if !status.success() {
-        // Retry without break-system-packages for older distros.
-        let mut retry = Command::new(python);
-        retry.args(["-m", "pip", "install", "--user", "--upgrade"]);
-        if req.is_file() {
-            retry.arg("-r").arg(&req);
-        } else {
-            retry.args([
-                "fastapi",
-                "uvicorn[standard]",
-                "ollama",
-                "anthropic",
-                "rich",
-                "python-dotenv",
-                "requests",
-                "click",
-                "textual",
-            ]);
-        }
-        if !retry.status().map(|s| s.success()).unwrap_or(false) {
-            return Err(
-                "Could not install Python packages.\n\
-                 Run: bash scripts/install-tauri-deck.sh"
-                    .into(),
-            );
-        }
+    // Make sure pip itself exists (fresh venvs / minimal system pythons).
+    let _ = py_command(python)
+        .args(["-m", "ensurepip", "--upgrade"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+
+    let ok = if is_venv_python(python) {
+        // Inside a venv `--user` is invalid and break-system-packages is moot.
+        run_pip(python, &req, &[])
+    } else {
+        // System Python: prefer a user install; fall back to PEP 668 override.
+        run_pip(python, &req, &["--user"])
+            || run_pip(python, &req, &["--user", "--break-system-packages"])
+    };
+
+    if !ok {
+        return Err(
+            "Could not install Python packages.\n\
+             Run: bash scripts/install-tauri-deck.sh"
+                .into(),
+        );
     }
     Ok(())
 }
@@ -185,7 +281,7 @@ fn wait_for_health(port: u16) -> bool {
 fn try_spawn(python: &Path, root: &Path, port: u16) -> Result<Child, String> {
     ensure_python_deps(python, root)?;
 
-    let child = Command::new(python)
+    let child = py_command(python)
         .arg("-m")
         .arg("chahlie.tauri_server")
         .arg("--port")
