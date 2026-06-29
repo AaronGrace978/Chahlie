@@ -171,6 +171,15 @@ python run.py
 
 Download from [GitHub Releases](https://github.com/AaronGrace978/Chahlie/releases). See **[STEAM_DECK.md](STEAM_DECK.md)**.
 
+### Tauri Desktop App (v2.6)
+
+Native window (React UI) — install once, add to Steam as a Non-Steam game. See **[CHAHLIE_TAURI.md](CHAHLIE_TAURI.md)**.
+
+```bash
+pip install -r requirements-tauri.txt
+bash scripts/build-tauri-release.sh   # → AppImage + .deb
+```
+
 ## Usage
 
 ```bash

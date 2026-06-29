@@ -1,0 +1,4 @@
+# Chahlie Tauri desktop shell — Python API server
+-r requirements-deck.txt
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0

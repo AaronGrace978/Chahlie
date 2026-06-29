@@ -2,6 +2,15 @@
 
 All notable changes to Chahlie will be documented in this file.
 
+## [2.6.0] "Green Monster GUI" - 2026-06-29
+
+### Added
+
+- **Chahlie Tauri** (`chahlie-tauri/`) — native desktop app with React UI + Python agent backend.
+- **`chahlie/tauri_server.py`** — local FastAPI server (chat SSE, API key setup, approval modals).
+- **`scripts/build-tauri-release.sh`** — builds Linux AppImage and `.deb`.
+- **`CHAHLIE_TAURI.md`** — install + Steam Non-Steam game instructions.
+
 ## [2.5.12] "Walk-Off" - 2026-06-29
 
 ### Fixed
