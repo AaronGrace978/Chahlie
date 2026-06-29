@@ -1,8 +1,8 @@
 """
 Voice input/output for Chahlie — talk to your coding agent.
 
-On Steam Deck / Linux we use system audio tools (pw-record, espeak-ng) so
-nothing needs to compile. PyAudio is optional fallback only.
+On Steam Deck / Linux we use system audio tools (parecord, pw-record, arecord)
+so nothing needs to compile. PyAudio is optional fallback only.
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import wave
 from typing import Callable, Optional
 
 # ---------------------------------------------------------------------------
@@ -21,21 +22,6 @@ from typing import Callable, Optional
 
 _STT_AVAILABLE: Optional[bool] = None
 _TTS_AVAILABLE: Optional[bool] = None
-_LINUX_RECORDER: Optional[str] = None
-
-
-def _linux_recorder() -> Optional[str]:
-    """Return pw-record or parecord path when available."""
-    global _LINUX_RECORDER
-    if _LINUX_RECORDER is None:
-        for name in ("pw-record", "parecord"):
-            path = shutil.which(name)
-            if path:
-                _LINUX_RECORDER = path
-                break
-        if _LINUX_RECORDER is None:
-            _LINUX_RECORDER = ""
-    return _LINUX_RECORDER or None
 
 
 def _pyaudio_available() -> bool:
@@ -44,6 +30,21 @@ def _pyaudio_available() -> bool:
         return True
     except ImportError:
         return False
+
+
+def _linux_recorders() -> list[str]:
+    """Return available recorder binaries in preference order for Steam Deck."""
+    found: list[str] = []
+    for name in ("parecord", "pw-record", "arecord"):
+        path = shutil.which(name)
+        if path:
+            found.append(path)
+    return found
+
+
+def _linux_recorder() -> Optional[str]:
+    recs = _linux_recorders()
+    return recs[0] if recs else None
 
 
 def stt_available() -> bool:
@@ -55,7 +56,7 @@ def stt_available() -> bool:
         except ImportError:
             _STT_AVAILABLE = False
         else:
-            _STT_AVAILABLE = bool(_linux_recorder() or _pyaudio_available())
+            _STT_AVAILABLE = bool(_linux_recorders() or _pyaudio_available())
     return _STT_AVAILABLE
 
 
@@ -82,51 +83,151 @@ def voice_available() -> bool:
 # Linux mic capture (no PyAudio / no gcc)
 # ---------------------------------------------------------------------------
 
-def _record_wav_linux(path: str, seconds: float) -> None:
-    """Record microphone audio to a WAV file using PipeWire/PulseAudio tools."""
-    recorder = _linux_recorder()
-    if not recorder:
-        raise RuntimeError(
-            "No mic recorder found. On Steam Deck run:\n"
-            "  sudo pacman -S pipewire-pulse"
+def _wav_ok(path: str, min_bytes: int = 500) -> bool:
+    if not os.path.isfile(path) or os.path.getsize(path) < min_bytes:
+        return False
+    try:
+        with wave.open(path, "rb") as wf:
+            return wf.getnchannels() >= 1 and wf.getframerate() > 0
+    except wave.Error:
+        return False
+
+
+def _wrap_raw_pcm_as_wav(raw_path: str, wav_path: str, rate: int = 16000) -> None:
+    """Convert raw s16le mono PCM into a proper WAV file."""
+    data = open(raw_path, "rb").read()
+    if len(data) < 100:
+        raise RuntimeError("No audio captured")
+    with wave.open(wav_path, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(rate)
+        wf.writeframes(data)
+
+
+def _run_recorder(cmd: list[str], seconds: float) -> tuple[int, str, str]:
+    try:
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            timeout=int(seconds) + 15,
         )
+        return proc.returncode, proc.stdout.decode(errors="replace"), proc.stderr.decode(errors="replace")
+    except subprocess.TimeoutExpired:
+        return -1, "", "timed out"
+    except FileNotFoundError as exc:
+        return -1, "", str(exc)
+
+
+def _record_parecord(path: str, seconds: float, device: str = "") -> None:
+    rec = shutil.which("parecord")
+    if not rec:
+        raise FileNotFoundError("parecord not found")
 
     secs = max(1, int(seconds))
-    name = os.path.basename(recorder)
+    base = [
+        rec,
+        "--file-format=wav",
+        "--channels=1",
+        "--rate=16000",
+    ]
+    if device:
+        base += ["--device", device]
 
-    if name == "pw-record":
-        cmd = [
-            recorder,
-            "--rate", "16000",
-            "--channels", "1",
-            "--format", "s16",
-            path,
-        ]
-    else:
-        cmd = [
-            recorder,
-            f"--rate=16000",
-            "--channels=1",
-            "--file-format=wav",
-            path,
-        ]
+    # SIGINT lets parecord flush the WAV header cleanly.
+    variants = [
+        ["timeout", "-s", "INT", str(secs), *base, path],
+        ["timeout", str(secs), *base, path],
+        [*base, path],  # some builds ignore timeout; caller checks file
+    ]
+    last_err = ""
+    for cmd in variants:
+        code, _, err = _run_recorder(cmd, seconds)
+        if _wav_ok(path):
+            return
+        last_err = err or f"exit {code}"
+    raise RuntimeError(last_err or "parecord produced no audio")
 
-    try:
-        subprocess.run(
-            ["timeout", str(secs), *cmd],
-            check=True,
-            capture_output=True,
-            timeout=secs + 5,
-        )
-    except subprocess.CalledProcessError as exc:
-        stderr = (exc.stderr or b"").decode(errors="replace").strip()
-        raise RuntimeError(f"Mic recording failed: {stderr or exc}") from exc
-    except FileNotFoundError:
-        # timeout binary missing — run recorder directly
-        subprocess.run(cmd, check=True, capture_output=True, timeout=secs + 5)
 
-    if not os.path.isfile(path) or os.path.getsize(path) < 100:
-        raise RuntimeError("Didn't catch anything — try again, kehd.")
+def _record_pw_record(path: str, seconds: float) -> None:
+    rec = shutil.which("pw-record")
+    if not rec:
+        raise FileNotFoundError("pw-record not found")
+
+    secs = max(1, int(seconds))
+    raw_path = path + ".raw"
+
+    # Try WAV output first (no --format s16 — that writes raw PCM).
+    variants = [
+        [rec, "--rate", "16000", "--channels", "1", "--duration", str(secs), path],
+        ["timeout", "-s", "INT", str(secs), rec, "--rate", "16000", "--channels", "1", path],
+        [rec, "--rate", "16000", "--channels", "1", "--format", "s16", "--duration", str(secs), raw_path],
+    ]
+    last_err = ""
+    for cmd in variants:
+        code, _, err = _run_recorder(cmd, seconds)
+        if _wav_ok(path):
+            return
+        if os.path.isfile(raw_path) and os.path.getsize(raw_path) > 100:
+            try:
+                _wrap_raw_pcm_as_wav(raw_path, path)
+                if _wav_ok(path):
+                    return
+            finally:
+                try:
+                    os.unlink(raw_path)
+                except OSError:
+                    pass
+        last_err = err or f"exit {code}"
+    raise RuntimeError(last_err or "pw-record produced no audio")
+
+
+def _record_arecord(path: str, seconds: float, device: str = "") -> None:
+    rec = shutil.which("arecord")
+    if not rec:
+        raise FileNotFoundError("arecord not found")
+
+    secs = max(1, int(seconds))
+    cmd = [rec, "-q", "-f", "S16_LE", "-r", "16000", "-c", "1", "-d", str(secs)]
+    if device:
+        cmd += ["-D", device]
+    cmd.append(path)
+
+    code, _, err = _run_recorder(cmd, seconds)
+    if _wav_ok(path):
+        return
+    raise RuntimeError(err or f"arecord exit {code}")
+
+
+def _record_wav_linux(path: str, seconds: float) -> None:
+    """Record microphone audio to a WAV file — tries every tool until one works."""
+    device = os.getenv("CHAHLIE_MIC_DEVICE", "").strip()
+    errors: list[str] = []
+
+    for name, fn in (
+        ("parecord", lambda: _record_parecord(path, seconds, device)),
+        ("pw-record", lambda: _record_pw_record(path, seconds)),
+        ("arecord", lambda: _record_arecord(path, seconds, device)),
+    ):
+        if not shutil.which(name):
+            continue
+        try:
+            fn()
+            if _wav_ok(path):
+                return
+            errors.append(f"{name}: file too small or not valid WAV")
+        except Exception as exc:
+            errors.append(f"{name}: {exc}")
+
+    hint = (
+        "Mic recording failed on all tools.\n"
+        "• Make sure a mic is enabled in KDE audio settings\n"
+        "• Try typing instead (voice is optional)\n"
+        "• Or set CHAHLIE_MIC_DEVICE to your mic name"
+    )
+    if errors:
+        hint += "\n\nDetails:\n" + "\n".join(f"  • {e}" for e in errors)
+    raise RuntimeError(hint)
 
 
 # ---------------------------------------------------------------------------
@@ -160,13 +261,13 @@ class SpeechListener:
         if _pyaudio_available():
             self._mic = sr.Microphone()
 
-    def _capture_audio(self, on_status: Optional[Callable[[str], None]]):
+    def _capture_audio(self, on_status: Optional[Callable[[str], None]] = None):
         import speech_recognition as sr
 
         if on_status:
             on_status("listening")
 
-        if _linux_recorder() and sys.platform.startswith("linux"):
+        if _linux_recorders() and sys.platform.startswith("linux"):
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
                 wav_path = tmp.name
             try:
@@ -181,8 +282,7 @@ class SpeechListener:
 
         if self._mic is None:
             raise RuntimeError(
-                "Mic unavailable. On Steam Deck run:\n"
-                "  sudo pacman -S pipewire-pulse espeak-ng"
+                "Mic unavailable. Voice is optional — you can type instead."
             )
 
         with self._mic as source:
@@ -203,9 +303,7 @@ class SpeechListener:
         """
         if not stt_available():
             raise RuntimeError(
-                "Voice input needs:\n"
-                "  pip install SpeechRecognition\n"
-                "  sudo pacman -S pipewire-pulse   # Steam Deck mic"
+                "Voice input not available on this system. Just type instead."
             )
 
         import speech_recognition as sr
@@ -234,9 +332,9 @@ class SpeechListener:
         try:
             return self._recognizer.recognize_google(audio, language=self.language)
         except sr.UnknownValueError:
-            raise RuntimeError("Couldn't make out the words.")
+            raise RuntimeError("Couldn't make out the words — speak closer to the mic.")
         except sr.RequestError as exc:
-            raise RuntimeError(f"Speech service unavailable: {exc}") from exc
+            raise RuntimeError(f"Speech service unavailable (need Wi-Fi): {exc}") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -294,7 +392,6 @@ class SpeechSpeaker:
 
     def _speak_espeak(self, text: str) -> None:
         assert self._espeak
-        # espeak-ng rate: ~80 default; map our 175 wpm-ish to ~160
         wpm = min(300, max(80, self.rate))
         self._proc = subprocess.Popen(
             [self._espeak, "-s", str(wpm), text],
@@ -403,10 +500,11 @@ class VoiceManager:
     def status_line(self) -> str:
         bits = []
         if self.can_listen:
-            rec = _linux_recorder()
-            bits.append(f"mic ({os.path.basename(rec) if rec else 'pyaudio'})")
+            recs = _linux_recorders()
+            names = "+".join(os.path.basename(r) for r in recs[:2]) or "pyaudio"
+            bits.append(f"mic ({names})")
         elif self.enabled:
-            bits.append("mic (needs pipewire-pulse)")
+            bits.append("mic (type instead)")
         if self.can_speak:
             bits.append("speaker (espeak)")
         elif self.tts_enabled:

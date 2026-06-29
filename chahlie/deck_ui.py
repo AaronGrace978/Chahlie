@@ -644,7 +644,7 @@ if TEXTUAL_AVAILABLE:
                 return
             if not self.voice.can_listen:
                 self._log_error(
-                    "Mic unavailable. Install: pip install -r requirements-deck.txt"
+                    "Mic not available — just type your message below instead."
                 )
                 return
             self._start_listen()
