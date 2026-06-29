@@ -1,51 +1,39 @@
 #!/usr/bin/env bash
-# Chahlie on Steam Deck — installs pip if missing, then Python deps.
-# Works WITHOUT system pip (uses ensurepip or pacman).
+# Chahlie on Steam Deck — uses a venv (no system pip, no pacman, no sudo).
+# Works on read-only SteamOS.
 set -euo pipefail
 
-PY="${CHAHLIE_PYTHON:-/usr/bin/python3}"
-command -v "$PY" >/dev/null 2>&1 || PY="$(command -v python3)"
-if [[ -z "$PY" ]]; then
-  echo "✗ python3 not found. Run: sudo pacman -S python"
+VENV="${CHAHLIE_VENV:-$HOME/.local/share/chahlie/venv}"
+PY="$VENV/bin/python"
+PIP="$VENV/bin/pip"
+
+echo "⚾ Chahlie — Steam Deck setup (venv, no sudo)"
+echo "   Venv: $VENV"
+
+if [[ ! -x "$PY" ]]; then
+  echo "→ Creating Python venv…"
+  mkdir -p "$(dirname "$VENV")"
+  if ! python3 -m venv "$VENV" 2>/dev/null; then
+    python3 -m venv --system-site-packages "$VENV"
+  fi
+fi
+
+if [[ ! -x "$PY" ]]; then
+  echo "✗ Could not create venv. Switch to Desktop Mode and retry."
   exit 1
 fi
 
-echo "⚾ Chahlie — Steam Deck setup"
-echo "   Python: $PY"
+echo "→ Upgrading pip in venv…"
+"$PY" -m pip install --upgrade pip wheel setuptools
 
-bootstrap_pip() {
-  if "$PY" -m pip --version &>/dev/null; then
-    return 0
-  fi
-  echo "→ pip not found — bootstrapping…"
-  if "$PY" -m ensurepip --user --default-pip 2>/dev/null || "$PY" -m ensurepip --user 2>/dev/null; then
-    return 0
-  fi
-  if command -v pacman &>/dev/null; then
-    echo "→ Trying pacman (may ask for sudo password)…"
-    if sudo pacman -S --needed --noconfirm python-pip; then
-      return 0
-    fi
-  fi
-  echo "✗ Could not install pip. Try:"
-  echo "    sudo pacman -S python-pip"
-  echo "  Or use the Deck tarball (no pip needed):"
-  echo "    https://github.com/AaronGrace978/Chahlie/releases/download/v2.5.12/chahlie-deck-2.5.12-linux-x86_64.tar.gz"
-  exit 1
-}
-
-bootstrap_pip
-
-echo "→ Installing Chahlie Python packages…"
-"$PY" -m pip install --user --upgrade pip wheel setuptools 2>/dev/null || true
-
-install_pkgs() {
-  "$PY" -m pip install --user --upgrade \
-    fastapi "uvicorn[standard]" ollama anthropic rich python-dotenv requests click textual \
-    "$@"
-}
-
-install_pkgs --break-system-packages 2>/dev/null || install_pkgs
+echo "→ Installing Chahlie packages…"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REQ="$ROOT/requirements-tauri.txt"
+if [[ -f "$REQ" ]]; then
+  "$PIP" install -r "$REQ"
+else
+  "$PIP" install fastapi "uvicorn[standard]" ollama anthropic rich python-dotenv requests click textual
+fi
 
 mkdir -p "$HOME/.local/share/chahlie"
 if [[ ! -f "$HOME/.local/share/chahlie/.env" ]]; then
@@ -58,14 +46,17 @@ EOF
 fi
 
 echo ""
-echo "✓ Python ready."
+echo "✓ Done. Python: $PY"
 echo ""
-echo "EASIEST (recommended — no AppImage headaches):"
+echo "══════════════════════════════════════════════════════"
+echo " EASIEST: Deck tarball (recommended)"
+echo "══════════════════════════════════════════════════════"
+echo "  cd ~/Downloads"
 echo "  curl -L -O https://github.com/AaronGrace978/Chahlie/releases/download/v2.5.12/chahlie-deck-2.5.12-linux-x86_64.tar.gz"
 echo "  tar -xzf chahlie-deck-2.5.12-linux-x86_64.tar.gz"
 echo "  cd chahlie-deck-2.5.12-linux && ./START-CHAHLIE.sh"
 echo ""
-echo "Or Tauri AppImage (after downloading from releases):"
+echo " Tauri AppImage (if you downloaded one):"
 echo "  export WEBKIT_DISABLE_DMABUF_RENDERER=1"
 echo "  export CHAHLIE_PYTHON=$PY"
 echo "  ./Chahlie_*_amd64.AppImage"

@@ -16,22 +16,27 @@ fi
 
 export WEBKIT_DISABLE_DMABUF_RENDERER=1
 export GDK_BACKEND=x11
-export CHAHLIE_PYTHON="${CHAHLIE_PYTHON:-/usr/bin/python3}"
+# Steam Deck — use venv python (works without system pip / read-only root)
+VENV="${CHAHLIE_VENV:-$HOME/.local/share/chahlie/venv}"
+if [[ -x "$VENV/bin/python" ]]; then
+  export CHAHLIE_PYTHON="$VENV/bin/python"
+elif [[ -z "${CHAHLIE_PYTHON:-}" ]]; then
+  export CHAHLIE_PYTHON="/usr/bin/python3"
+fi
 
-# Bootstrap pip + deps if needed
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "$SCRIPT_DIR/../scripts/install-tauri-deck.sh" ]]; then
-  bash "$SCRIPT_DIR/../scripts/install-tauri-deck.sh"
-elif [[ -f "$HOME/Downloads/install-tauri-deck.sh" ]]; then
-  bash "$HOME/Downloads/install-tauri-deck.sh"
-else
-  if ! "$CHAHLIE_PYTHON" -m pip --version &>/dev/null; then
-    "$CHAHLIE_PYTHON" -m ensurepip --user --default-pip 2>/dev/null || \
-    "$CHAHLIE_PYTHON" -m ensurepip --user 2>/dev/null || \
-    sudo pacman -S --needed python-pip
-  fi
-  "$CHAHLIE_PYTHON" -m pip install --user fastapi "uvicorn[standard]" ollama anthropic rich python-dotenv requests click textual --break-system-packages 2>/dev/null || \
-  "$CHAHLIE_PYTHON" -m pip install --user fastapi "uvicorn[standard]" ollama anthropic rich python-dotenv requests click textual
+# Bootstrap venv if missing
+if [[ ! -x "$VENV/bin/python" ]]; then
+  echo "→ Creating Chahlie venv (no sudo needed)…"
+  mkdir -p "$(dirname "$VENV")"
+  python3 -m venv "$VENV" 2>/dev/null || python3 -m venv --system-site-packages "$VENV"
+  "$VENV/bin/pip" install --upgrade pip wheel
+  "$VENV/bin/pip" install fastapi "uvicorn[standard]" ollama anthropic rich python-dotenv requests click textual
+  export CHAHLIE_PYTHON="$VENV/bin/python"
+fi
+
+if ! "$CHAHLIE_PYTHON" -c "import fastapi" 2>/dev/null; then
+  echo "→ Installing Python deps into venv…"
+  "$VENV/bin/pip" install fastapi "uvicorn[standard]" ollama anthropic rich python-dotenv requests click textual
 fi
 
 chmod +x "$APP"

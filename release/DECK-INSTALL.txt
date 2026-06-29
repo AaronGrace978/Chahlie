@@ -4,7 +4,7 @@
 
 You do NOT need pip, AppImage, or Tauri for the simple install.
 
-Open KONSOLE and paste this ENTIRE block:
+Open KONSOLE and paste this ENTIRE block (no pip, no sudo, no pacman):
 
 cd ~/Downloads
 curl -L -O https://github.com/AaronGrace978/Chahlie/releases/download/v2.5.12/chahlie-deck-2.5.12-linux-x86_64.tar.gz
@@ -12,6 +12,10 @@ tar -xzf chahlie-deck-2.5.12-linux-x86_64.tar.gz
 cd chahlie-deck-2.5.12-linux
 chmod +x START-CHAHLIE.sh
 ./START-CHAHLIE.sh
+
+Why this works on Steam Deck:
+- SteamOS blocks system pip (PEP 668) and pacman is read-only in Gaming Mode
+- START-CHAHLIE.sh creates its OWN Python venv — no sudo needed
 
 First run installs everything into its own Python venv (~2 min).
 Then the UI opens — paste your Ollama API key.
