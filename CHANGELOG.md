@@ -2,6 +2,12 @@
 
 All notable changes to Chahlie will be documented in this file.
 
+## [2.5.11] "Green Light" - 2026-06-29
+
+### Fixed
+
+- **Deck crash on launch** — `Input.Focused` is not in Textual 0.50; use the standard `Focus` event instead.
+
 ## [2.5.10] "Hot Corner" - 2026-06-29
 
 Deck patch release — typing focus fix, responsive UI during cloud calls, merged onto main.

@@ -14,6 +14,7 @@ try:
     from textual.app import App, ComposeResult
     from textual.binding import Binding
     from textual.containers import Horizontal, Vertical, VerticalScroll
+    from textual.events import Focus
     from textual.screen import ModalScreen
     from textual.widgets import Button, Footer, Header, Input, Label, RichLog, Static
     from textual.reactive import reactive
@@ -697,8 +698,8 @@ if TEXTUAL_AVAILABLE:
         def _btn_quit(self) -> None:
             self.exit()
 
-        @on(Input.Focused, "#user-input")
-        def _input_focused(self, _event: Input.Focused) -> None:
+        @on(Focus, "#user-input")
+        def _input_focused(self, _event: Focus) -> None:
             self._chat().scroll_end(animate=False)
 
         def action_focus_input(self) -> None:
