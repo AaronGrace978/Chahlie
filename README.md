@@ -167,16 +167,9 @@ python run.py
 
 ### Steam Deck Edition (v2.5)
 
-Talk to Chahlie on your Deck with voice + a gamepad-friendly UI:
+**Extract → double-click `START-CHAHLIE.sh` → paste API key in the UI.**
 
-```bash
-bash scripts/install-steam-deck.sh   # one-shot install
-chahlie-deck                         # launch
-```
-
-Or from source: `python -m chahlie --deck`
-
-See **[STEAM_DECK.md](STEAM_DECK.md)** for voice setup, Steam Input mappings, and troubleshooting.
+Download from [GitHub Releases](https://github.com/AaronGrace978/Chahlie/releases). See **[STEAM_DECK.md](STEAM_DECK.md)**.
 
 ## Usage
 

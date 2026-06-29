@@ -30,6 +30,7 @@ from .config import (
     OLLAMA_LOCAL_MODEL,
     VOICE_TTS_ENABLED,
 )
+from .deck_setup import needs_api_key_setup, reload_config, save_api_key, verify_api_key
 from .personality import get_greeting
 from .tools import set_approval_hook
 from .voice import VoiceManager, voice_available
@@ -120,6 +121,105 @@ class ApprovalScreen(ModalScreen[bool]):
 
     def action_deny(self) -> None:
         self.dismiss(False)
+
+
+class SetupScreen(ModalScreen[str]):
+    """First-run welcome — paste API key, then go."""
+
+    CSS = f"""
+    SetupScreen {{
+        align: center middle;
+    }}
+    #setup-box {{
+        width: 92%;
+        max-width: 78;
+        height: auto;
+        background: {NAVY};
+        border: thick {GREEN};
+        padding: 1 2;
+    }}
+    #setup-title {{
+        text-style: bold;
+        color: {ACCENT};
+        text-align: center;
+        width: 100%;
+        margin-bottom: 1;
+    }}
+    #setup-url {{
+        color: {ACCENT};
+    }}
+    #setup-error {{
+        color: #E74C3C;
+    }}
+    #api-input {{
+        margin: 1 0;
+        border: solid {ACCENT};
+        background: #0A1A2E;
+    }}
+    #start-btn {{
+        background: {GREEN};
+        color: white;
+        width: 100%;
+        margin-top: 1;
+    }}
+  #skip-btn {{
+        background: {MUTED};
+        color: white;
+        width: 100%;
+        margin-top: 1;
+    }}
+    """
+
+    BINDINGS = [
+        Binding("escape", "skip", "Skip", show=False),
+    ]
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="setup-box"):
+            yield Label("⚾ Welcome to Chahlie!", id="setup-title")
+            yield Label(
+                "Paste your free Ollama API key to start chatting.",
+                id="setup-help",
+            )
+            yield Label(
+                "Get a free key at ollama.com/settings/keys",
+                id="setup-url",
+            )
+            yield Label("", id="setup-error")
+            yield Input(
+                placeholder="Paste API key here…",
+                password=True,
+                id="api-input",
+            )
+            yield Button("▶  Start Chahlie", id="start-btn", variant="success")
+            yield Button("Skip for now (typed chat won't work)", id="skip-btn")
+
+    def on_mount(self) -> None:
+        self.query_one("#api-input", Input).focus()
+
+    @on(Button.Pressed, "#start-btn")
+    @on(Input.Submitted, "#api-input")
+    def _start(self, event=None) -> None:
+        key = self.query_one("#api-input", Input).value.strip()
+        err = self.query_one("#setup-error", Label)
+        if not key or len(key) < 8:
+            err.update("Key too short — paste the full key from ollama.com/settings/keys")
+            self.app.bell()
+            return
+        err.update("Checking key…")
+        ok, msg = verify_api_key(key)
+        if not ok:
+            err.update(msg)
+            self.app.bell()
+            return
+        self.dismiss(key)
+
+    @on(Button.Pressed, "#skip-btn")
+    def _skip(self) -> None:
+        self.dismiss("")
+
+    def action_skip(self) -> None:
+        self.dismiss("")
 
 
 class DeckStatusBar(Static):
@@ -313,30 +413,56 @@ if TEXTUAL_AVAILABLE:
 
         def on_mount(self) -> None:
             self._loop = asyncio.get_running_loop()
+            self._boot()
+
+        @work
+        async def _boot(self) -> None:
+            if needs_api_key_setup():
+                key = await self.push_screen_wait(SetupScreen())
+                if key:
+                    save_api_key(key)
+                    reload_config()
+                    self._log_system("API key saved. You're good to go, kehd!")
+                else:
+                    self._log_system(
+                        "[yellow]No API key yet — type /key to add one[/yellow]"
+                    )
+            self._start_session()
+
+        @work
+        async def _change_api_key(self) -> None:
+            key = await self.push_screen_wait(SetupScreen())
+            if not key:
+                return
+            save_api_key(key)
+            reload_config()
+            self.agent = ChahlieAgent()
+            self._refresh_status()
+            self._log_system("API key updated.")
+
+        def _start_session(self) -> None:
             set_approval_hook(self._approval_prompter)
             self.agent = ChahlieAgent()
             self._refresh_status()
             self._log_system(get_greeting())
             self._log_system(
-                "Deck controls: F1 Help · F2 Clear · F3 Memory · "
+                "Type below or tap 🎤 Talk · F1 Help · F2 Clear · F3 Memory · "
                 "F4 Talk · F5 TTS · F7 Type · Enter send"
             )
             if voice_available():
                 self._log_system(f"Voice: {self.voice.status_line()}")
             else:
-                self._log_system(
-                    "[dim]Voice extras not installed — "
-                    "pip install -r requirements-deck.txt[/dim]"
-                )
-            primer = self.agent.get_primer_summary()
-            if primer.get("primed"):
-                self._log_system(
-                    f"Project: {primer.get('name')} "
-                    f"({primer.get('language', '?')} / {primer.get('framework', '?')})"
-                )
-            if self.agent.plugin_warnings:
-                for w in self.agent.plugin_warnings:
-                    self._log_system(f"[yellow]plugin: {w}[/yellow]")
+                self._log_system("[dim]Voice: type to chat (mic optional)[/dim]")
+            if self.agent:
+                primer = self.agent.get_primer_summary()
+                if primer.get("primed"):
+                    self._log_system(
+                        f"Project: {primer.get('name')} "
+                        f"({primer.get('language', '?')} / {primer.get('framework', '?')})"
+                    )
+                if self.agent.plugin_warnings:
+                    for w in self.agent.plugin_warnings:
+                        self._log_system(f"[yellow]plugin: {w}[/yellow]")
             self._focus_input()
 
         def _input(self) -> Input:
@@ -446,6 +572,9 @@ if TEXTUAL_AVAILABLE:
             if cmd == "/tts":
                 self.action_toggle_tts()
                 return True
+            if cmd == "/key":
+                self._change_api_key()
+                return True
             if cmd.startswith("/"):
                 self._log_system(f"Unknown command {cmd}. Try /help /clear /memory.")
                 return True
@@ -471,7 +600,12 @@ if TEXTUAL_AVAILABLE:
             elif evt.type == "reflection":
                 self._log_system(f"💡 {evt.content}")
             elif evt.type == "error":
-                self._log_error(evt.content)
+                msg = evt.content or ""
+                self._log_error(msg)
+                if "401" in msg or "unauthorized" in msg.lower():
+                    self._log_system(
+                        "[yellow]Bad API key — type /key to enter a new one[/yellow]"
+                    )
             elif evt.type == "cost":
                 self._log_system(f"💰 {evt.content}")
 
@@ -575,7 +709,7 @@ if TEXTUAL_AVAILABLE:
 
         def action_help(self) -> None:
             self._log_system(
-                "[bold]Deck commands[/]: /help /clear /memory /voice /tts /quit\n"
+                "[bold]Deck commands[/]: /help /clear /memory /voice /tts /key /quit\n"
                 "[bold]Keys[/]: F1 Help · F2 Clear · F3 Memory · F4 Talk · F5 TTS · F7 Type\n"
                 "[bold]Steam Input[/]: map A→Enter, B→Esc, X→F4, Y→F1, Start→F7 for typing"
             )
@@ -615,7 +749,7 @@ if TEXTUAL_AVAILABLE:
                 return
             if not self.voice.can_listen:
                 self._log_error(
-                    "Mic unavailable. Install: pip install -r requirements-deck.txt"
+                    "Mic not available — just type your message below instead."
                 )
                 return
             self._start_listen()

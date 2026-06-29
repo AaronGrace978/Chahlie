@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+# Chahlie Steam Deck launcher — keeps window open on errors, shows what's wrong.
+
+pause() {
+    echo ""
+    echo "  Press Enter to close this window..."
+    read -r _
+}
+
+die() {
+    echo ""
+    echo "  ✗ $*"
+    pause
+    exit 1
+}
+
+# Find the real app folder (not the nested release/ subfolder)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$SCRIPT_DIR"
+if [[ ! -f "$ROOT/chahlie/__init__.py" ]]; then
+    if [[ -f "$ROOT/../chahlie/__init__.py" ]]; then
+        ROOT="$(cd "$ROOT/.." && pwd)"
+    else
+        die "Cannot find Chahlie files. Open the extracted chahlie-deck folder, not a subfolder."
+    fi
+fi
+
+INSTALL_DIR="${CHAHLIE_HOME:-$HOME/.local/share/chahlie}"
+VENV_DIR="$INSTALL_DIR/venv"
+ENV_FILE="$INSTALL_DIR/.env"
+MARKER="$INSTALL_DIR/.chahlie-ready"
+PYTHON=""
+
+pick_python() {
+    if [[ -x "$VENV_DIR/bin/python" ]]; then
+        PYTHON="$VENV_DIR/bin/python"
+        return 0
+    fi
+    if command -v python3 &>/dev/null; then
+        PYTHON="$(command -v python3)"
+        return 0
+    fi
+    die "python3 not found. You're in Desktop Mode, right?"
+}
+
+install_deps() {
+    echo ""
+    echo "  ⚾ Chahlie — first-time setup"
+    echo "  ============================="
+    echo "  Folder: $ROOT"
+    echo ""
+
+    pick_python
+
+    # --- Try virtualenv (best option) ---
+    if [[ ! -f "$MARKER" ]]; then
+        echo "  → Setting up (needs internet, ~1-2 min)..."
+        echo ""
+
+        if ! "$PYTHON" -m venv "$VENV_DIR" 2>/dev/null; then
+            echo "  (venv default failed, trying with system packages...)"
+            "$PYTHON" -m venv --system-site-packages "$VENV_DIR" 2>/dev/null || true
+        fi
+
+        if [[ -x "$VENV_DIR/bin/python" ]]; then
+            PYTHON="$VENV_DIR/bin/python"
+            echo "  → Installing into: $VENV_DIR"
+            "$VENV_DIR/bin/pip" install --upgrade pip wheel setuptools || true
+            "$VENV_DIR/bin/pip" install -e "$ROOT" || die "pip install failed. Check internet connection."
+            "$VENV_DIR/bin/pip" install -r "$ROOT/requirements-deck.txt" || die "Could not install dependencies."
+        else
+            echo "  → Using user install (no venv)..."
+            "$PYTHON" -m pip install --user --upgrade pip wheel setuptools 2>/dev/null || \
+                "$PYTHON" -m ensurepip --upgrade 2>/dev/null || true
+            "$PYTHON" -m pip install --user -e "$ROOT" --break-system-packages 2>/dev/null || \
+                "$PYTHON" -m pip install --user -e "$ROOT" || die "pip install failed."
+            "$PYTHON" -m pip install --user -r "$ROOT/requirements-deck.txt" --break-system-packages 2>/dev/null || \
+                "$PYTHON" -m pip install --user -r "$ROOT/requirements-deck.txt" || die "Could not install dependencies."
+        fi
+
+        mkdir -p "$INSTALL_DIR"
+        [[ -f "$ENV_FILE" ]] || cp "$ROOT/.env.deck.example" "$ENV_FILE"
+
+        # Desktop shortcut with correct path
+        cat > "$HOME/Desktop/Start Chahlie.desktop" << EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Start Chahlie
+Exec=bash -lc 'cd "$ROOT" && bash "$ROOT/START-CHAHLIE.sh"'
+Icon=utilities-terminal
+Terminal=true
+Categories=Game;
+EOF
+        chmod +x "$HOME/Desktop/Start Chahlie.desktop" 2>/dev/null || true
+
+        date > "$MARKER"
+        echo ""
+        echo "  ✓ Setup done!"
+        echo ""
+    fi
+}
+
+verify() {
+    pick_python
+    echo "  → Checking install..."
+    if ! "$PYTHON" -c "import chahlie; import textual" 2>/dev/null; then
+        echo "  Install incomplete — retrying..."
+        rm -f "$MARKER"
+        install_deps
+        "$PYTHON" -c "import chahlie; import textual" 2>/dev/null || \
+            die "Still broken. Copy ALL the red text above and send it for help."
+    fi
+    echo "  ✓ Ready. Opening UI..."
+    echo ""
+}
+
+install_deps
+verify
+
+export CHAHLIE_ENV_FILE="$ENV_FILE"
+if [[ -f "$ENV_FILE" ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "$ENV_FILE"
+    set +a
+fi
+
+cd "$ROOT"
+if "$PYTHON" -m chahlie --deck "$@"; then
+    exit 0
+else
+    CODE=$?
+    echo ""
+    echo "  ✗ Chahlie exited with error (code $CODE)"
+    pause
+    exit "$CODE"
+fi

@@ -1,0 +1,28 @@
+╔══════════════════════════════════════════════════════════╗
+║           CHAHLIE FOR STEAM DECK — QUICK START           ║
+╚══════════════════════════════════════════════════════════╝
+
+  1. Extract this folder anywhere (e.g. Downloads)
+
+  2. Double-click:  START-CHAHLIE.sh
+     (or right-click → Execute)
+
+     First launch installs automatically (~1 min).
+     The UI opens — paste your free Ollama API key when asked.
+
+  3. Get a free API key:  https://ollama.com/settings/keys
+
+  That's it. No install.sh. No pacman. No terminal commands required.
+
+  ─────────────────────────────────────────────────────────
+  TROUBLESHOOTING
+
+  • Can't double-click? Open Konsole and run:
+      cd ~/Downloads/chahlie-deck-*-linux
+      ./START-CHAHLIE.sh
+
+  • After first run, use the "Start Chahlie" icon on your Desktop.
+
+  • Talk to Chahlie: press F4 or tap the 🎤 Talk button.
+
+  Made by Cursor Boston ⚾

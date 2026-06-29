@@ -2,6 +2,64 @@
 
 All notable changes to Chahlie will be documented in this file.
 
+## [2.5.10] "Hot Corner" - 2026-06-29
+
+Deck patch release — typing focus fix, responsive UI during cloud calls, merged onto main.
+
+### Fixed
+
+- **Deck typing** — input refocuses after toolbar taps and modals; **F7** jumps to the text field.
+- **UI freeze** — agent turns run on a background thread so the Deck UI stays responsive during Ollama Cloud calls.
+- **Ollama Cloud errors** — clearer messages for auth failures, bad models, and transient outages; `/key` to update API key in-app.
+
+### Changed
+
+- Merged downloadable release packaging (setup wizard, one-click launcher, mic fixes from v2.5.1–v2.5.9) onto `main`.
+- `.env.deck.example` suggests `CHAHLIE_FALLBACK_MODELS` for automatic cloud model failover.
+
+## [2.5.3] "Bleacher Seats" - 2026-06-29
+
+One-click Steam Deck experience — **double-click and the UI opens**.
+
+### Added
+
+- **`START-CHAHLIE.sh`** — single launcher; auto-installs on first run, then opens the TUI.
+  No separate `install.sh` step. Creates Desktop shortcut automatically.
+- **In-app setup wizard** — welcome screen to paste your Ollama API key (no `nano` needed).
+- **`README-FIRST.txt`** in the release tarball with plain instructions.
+
+### Changed
+
+- Deck mode skips terminal backend checks — setup happens inside the UI.
+
+## [2.5.2] "Fenway Faithful" - 2026-06-29
+
+Installer fix for real Steam Decks — **no longer blocks on pacman**.
+
+### Fixed
+
+- `release/install.sh` detects audio tools already shipped on SteamOS
+  (`pw-record`, `espeak-ng`) and **skips pacman** when present.
+- Pacman failure (read-only root) is a warning, not a hard exit — install continues.
+- Removed unnecessary `python-pip` pacman dependency (venv includes pip).
+
+## [2.5.1] "Tap the Glass" - 2026-06-29
+
+Fixes Steam Deck install pain — **no PyAudio compile**, downloadable release tarball.
+
+### Fixed
+
+- Voice mic now uses **pw-record / parecord** (system PipeWire tools) instead of
+  pip-building PyAudio (which failed without gcc on SteamOS).
+- TTS uses **espeak-ng** directly on Linux — no extra pip compile step.
+
+### Added
+
+- **Downloadable release** — `chahlie-deck-VERSION-linux-x86_64.tar.gz` built by
+  `scripts/build-deck-release.sh` and published via GitHub Actions on tag push.
+- `release/install.sh` — standalone installer inside the tarball (extract → `./install.sh` → run).
+- `release/INSTALL.txt` — plain-English quick start for Deck users.
+
 ## [2.5.0] "Green Monster" - 2026-06-29
 
 Steam Deck release — gamepad-friendly UI, voice chat, and a one-shot installer.

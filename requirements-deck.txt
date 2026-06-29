@@ -1,14 +1,9 @@
-# Chahlie Steam Deck Edition — extra dependencies
-# Install: pip install -r requirements.txt -r requirements-deck.txt
-
-# Core (if not already installed)
--r requirements.txt
-
-# Deck UI (Textual is in requirements.txt)
-# Voice input/output
+# Chahlie Steam Deck — core deps only (no chromadb/onnx — too heavy for Deck)
+ollama>=0.4.0
+anthropic>=0.25.0
+rich>=13.7.0
+textual>=0.50.0
+click>=8.1.0
+python-dotenv>=1.0.0
+requests>=2.31.0
 SpeechRecognition>=3.10.0
-PyAudio>=0.2.14
-pyttsx3>=2.90
-
-# Optional offline speech (download a Vosk model, set CHAHLIE_VOSK_MODEL)
-# vosk>=0.3.45
