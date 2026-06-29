@@ -2,6 +2,17 @@
 
 All notable changes to Chahlie will be documented in this file.
 
+## [2.6.4] "Homecoming" - 2026-06-29
+
+### Fixed
+
+- **`EGL_BAD_PARAMETER` crash on Steam Deck** — WebKitGTK couldn't create a GPU
+  context and aborted before the window appeared. The app now sets safe
+  rendering defaults (`WEBKIT_DISABLE_DMABUF_RENDERER`,
+  `WEBKIT_DISABLE_COMPOSITING_MODE`, `LIBGL_ALWAYS_SOFTWARE`) before the webview
+  boots, falling back to software GL. Each is only applied when the user hasn't
+  already exported their own value, so no terminal env-var dance is needed.
+
 ## [2.6.3] "Homecoming" - 2026-06-29
 
 The release build that actually runs on a Steam Deck. Three real bugs kept the
