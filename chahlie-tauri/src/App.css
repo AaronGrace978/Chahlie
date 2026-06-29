@@ -1,15 +1,4 @@
-:root {
-  --navy: #0c2340;
-  --green: #1e5631;
-  --red: #bd3039;
-  --accent: #2ecc71;
-  --muted: #5d6d7e;
-  --text: #ecf0f1;
-  font-family: "Segoe UI", system-ui, sans-serif;
-  font-size: 16px;
-  color: var(--text);
-  background: var(--navy);
-}
+/* Fenway at Night — layout & components */
 
 * {
   box-sizing: border-box;
@@ -20,181 +9,403 @@ body {
   min-height: 100vh;
 }
 
+.fenway-bg {
+  background:
+    radial-gradient(ellipse 120% 80% at 50% 100%, var(--fenway-field) 0%, transparent 55%),
+    linear-gradient(180deg, var(--fenway-sky) 0%, var(--fenway-night) 45%, #030810 100%);
+}
+
 .app {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: var(--navy);
+  position: relative;
 }
 
-.loading,
-.error-screen,
-.setup {
+/* ── Banner ── */
+.boston-banner {
+  position: relative;
+  background: var(--red-sox-navy);
+  border-bottom: 3px solid var(--celtics-green);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.banner-skyline {
+  position: absolute;
+  inset: 0;
+  opacity: 0.14;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 80'%3E%3Cpath fill='%23FFB81C' d='M0 60 L40 45 L80 55 L120 35 L160 50 L200 30 L240 48 L280 38 L320 52 L360 40 L400 55 L400 80 L0 80Z'/%3E%3Cpath fill='none' stroke='%23007A33' stroke-width='1.5' d='M180 20 Q200 8 220 20 L225 55 L175 55Z'/%3E%3Cpath fill='none' stroke='%23FAFAFA' stroke-width='0.8' opacity='0.5' d='M60 25 Q200 5 340 25'/%3E%3C/svg%3E")
+      bottom center / 100% auto no-repeat;
+  pointer-events: none;
+}
+
+.banner-inner {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+}
+
+.banner-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.banner-name {
+  font-family: var(--font-header);
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  margin: 0;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+}
+
+.banner-tagline {
+  margin: 0.15rem 0 0;
+  font-size: 0.95rem;
+  color: var(--bruins-gold);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.banner-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.banner-badge {
+  background: var(--bruins-gold);
+  color: var(--red-sox-navy);
+  font-weight: 700;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+}
+
+.banner-version {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.boston-banner.compact .banner-inner {
+  padding: 0.5rem 1rem;
+}
+
+.boston-banner.compact .banner-name {
+  font-size: 1.25rem;
+}
+
+/* ── Chat ── */
+.chat {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.bubble {
+  max-width: 92%;
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: 1px solid transparent;
+}
+
+.bubble-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.35rem;
+  font-family: var(--font-header);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.bubble-head strong {
+  color: var(--text-primary);
+}
+
+.bubble.user {
+  align-self: flex-end;
+  background: rgba(12, 35, 64, 0.85);
+  border-color: rgba(255, 184, 28, 0.35);
+  border-left: 3px solid var(--bruins-gold);
+}
+
+.bubble.agent {
+  align-self: flex-start;
+  background: rgba(0, 122, 51, 0.12);
+  border-left: 3px solid var(--celtics-green-bright);
+}
+
+.bubble.agent.streaming {
+  border-left-color: var(--bruins-gold);
+  animation: pulse-cap 1.8s ease-in-out infinite;
+}
+
+.bubble.system {
+  align-self: center;
+  max-width: 100%;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  background: rgba(10, 22, 40, 0.6);
+  border: 1px dashed rgba(156, 163, 175, 0.3);
+}
+
+.bubble.tool {
+  align-self: flex-start;
+  color: var(--bruins-gold);
+  background: rgba(255, 184, 28, 0.08);
+  border-left: 3px solid var(--bruins-gold);
+}
+
+.bubble.error {
+  align-self: stretch;
+  color: #fca5a5;
+  background: rgba(189, 48, 57, 0.12);
+  border-left: 3px solid var(--red-sox-red);
+}
+
+.thinking-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-direction: row !important;
+}
+
+.inline-code,
+.code-block {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+}
+
+.inline-code {
+  background: rgba(0, 0, 0, 0.35);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  color: var(--text-code);
+  border: 1px solid rgba(0, 122, 51, 0.35);
+}
+
+.code-block {
+  background: var(--fenway-night);
+  padding: 0.75rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  border: 1px solid var(--ironworks);
+  color: var(--text-code);
+}
+
+/* ── Composer ── */
+.composer {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.85rem 1.25rem;
+  border-top: 2px solid var(--celtics-green);
+  background: var(--red-sox-navy);
+  flex-shrink: 0;
+}
+
+.composer input {
+  flex: 1;
+  padding: 0.7rem 0.85rem;
+  border: 2px solid var(--ironworks);
+  border-radius: 8px;
+  background: var(--fenway-night);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 1rem;
+}
+
+.composer input:focus {
+  outline: none;
+  border-color: var(--bruins-gold);
+  box-shadow: 0 0 0 2px rgba(255, 184, 28, 0.2);
+}
+
+.composer input:disabled {
+  opacity: 0.65;
+}
+
+/* ── Buttons ── */
+.btn-primary,
+.btn-secondary,
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: none;
+  padding: 0.65rem 1.1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: var(--font-header);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+}
+
+.btn-primary {
+  background: var(--celtics-green);
+  color: var(--text-primary);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--celtics-green-bright);
+}
+
+.btn-secondary {
+  background: var(--ironworks);
+  color: var(--text-muted);
+  border: 1px solid rgba(156, 163, 175, 0.35);
+}
+
+.btn-danger {
+  background: var(--red-sox-red);
+  color: var(--text-primary);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Setup / loading / error ── */
+.setup,
+.loading-screen,
+.error-screen {
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0;
+}
+
+.setup-card,
+.error-card {
+  width: min(480px, 92vw);
+  margin: 2rem auto;
   padding: 2rem;
   text-align: center;
-}
-
-.error-screen pre {
-  text-align: left;
-  background: #0a1a2e;
-  padding: 1rem;
-  border: 1px solid var(--red);
-  border-radius: 8px;
-  max-width: 640px;
-  white-space: pre-wrap;
-}
-
-.setup-card {
-  width: min(480px, 92vw);
-  padding: 2rem;
-  border: 3px solid var(--green);
+  background: var(--red-sox-navy);
+  border: 2px solid var(--celtics-green);
   border-radius: 12px;
-  background: #0a1a2e;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
 }
 
-.setup-card h1 {
-  color: var(--accent);
-  margin-top: 0;
+.setup-card h2 {
+  font-family: var(--font-header);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0.75rem 0 0.25rem;
+}
+
+.setup-tagline {
+  color: var(--bruins-gold);
+  margin: 0 0 1rem;
+}
+
+.setup-link {
+  color: var(--celtics-green-bright);
+  font-size: 0.9rem;
 }
 
 .setup-card input {
   width: 100%;
   margin: 1rem 0;
   padding: 0.75rem;
-  border: 2px solid var(--accent);
+  border: 2px solid var(--ironworks);
   border-radius: 8px;
-  background: var(--navy);
-  color: var(--text);
+  background: var(--fenway-night);
+  color: var(--text-primary);
 }
 
-.setup-card button,
-.composer button {
-  background: var(--green);
-  color: white;
-  border: none;
-  padding: 0.65rem 1.2rem;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
+.loading-screen {
+  justify-content: center;
+  gap: 1rem;
+  color: var(--text-muted);
 }
 
-.setup-card button:disabled,
-.composer button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.error-card {
+  border-color: var(--red-sox-red);
+  text-align: left;
 }
 
-.key-error {
-  color: #e74c3c;
+.error-card h2 {
+  font-family: var(--font-header);
+  margin: 0.5rem 0;
 }
 
-.topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.6rem 1rem;
-  background: var(--green);
-  border-bottom: 3px solid var(--red);
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.brand {
-  font-weight: 700;
-  color: var(--accent);
-}
-
-.meta {
-  font-size: 0.85rem;
-  opacity: 0.95;
-}
-
-.chat {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-.bubble {
-  padding: 0.55rem 0.75rem;
-  border-radius: 8px;
-  line-height: 1.45;
+.error-card pre {
   white-space: pre-wrap;
-  word-break: break-word;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--text-muted);
 }
 
-.bubble.user {
-  background: rgba(133, 193, 233, 0.15);
-  border-left: 3px solid #85c1e9;
-}
-
-.bubble.agent {
-  background: rgba(169, 223, 191, 0.12);
-  border-left: 3px solid #a9dfbf;
-}
-
-.bubble.system {
-  color: var(--muted);
+.notice.warning {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--bruins-gold);
   font-size: 0.9rem;
 }
 
-.bubble.tool {
-  color: #f5b041;
-}
-
-.bubble.error {
-  color: #e74c3c;
-  border-left: 3px solid var(--red);
-}
-
-.composer {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border-top: 2px solid var(--green);
-  background: #0a1a2e;
-}
-
-.composer input {
-  flex: 1;
-  padding: 0.65rem 0.75rem;
-  border: 2px solid var(--accent);
-  border-radius: 8px;
-  background: var(--navy);
-  color: var(--text);
-}
-
-.composer .ghost {
-  background: var(--muted);
-}
-
+/* ── Modal ── */
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65);
+  background: rgba(5, 15, 26, 0.82);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1rem;
+  z-index: 100;
 }
 
 .modal {
   width: min(560px, 96vw);
-  background: var(--navy);
-  border: 3px solid var(--red);
+  background: var(--red-sox-navy);
+  border: 3px solid var(--bruins-gold);
   border-radius: 12px;
   padding: 1.25rem;
 }
 
-.modal pre {
-  background: #0a1a2e;
-  padding: 0.75rem;
-  overflow-x: auto;
+.modal-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.modal-head h2 {
+  font-family: var(--font-header);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0;
+}
+
+.modal .reason {
+  color: var(--bruins-gold);
 }
 
 .modal-actions {
@@ -203,20 +414,45 @@ body {
   margin-top: 1rem;
 }
 
-.modal .approve {
-  background: var(--green);
-}
-
-.modal .deny {
-  background: var(--red);
-}
-
 .modal-actions button {
   flex: 1;
-  padding: 0.65rem;
-  border: none;
-  border-radius: 8px;
-  color: white;
-  font-weight: 600;
-  cursor: pointer;
+}
+
+/* ── Icon animations ── */
+.beer-mug {
+  animation: beer-sway 1.2s ease-in-out infinite;
+}
+
+.thinking-cap {
+  animation: cap-tilt 2s ease-in-out infinite;
+}
+
+@keyframes beer-sway {
+  0%,
+  100% {
+    transform: rotate(-4deg);
+  }
+  50% {
+    transform: rotate(4deg);
+  }
+}
+
+@keyframes cap-tilt {
+  0%,
+  100% {
+    transform: rotate(-2deg);
+  }
+  50% {
+    transform: rotate(2deg);
+  }
+}
+
+@keyframes pulse-cap {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 184, 28, 0);
+  }
+  50% {
+    box-shadow: 0 0 12px 0 rgba(255, 184, 28, 0.15);
+  }
 }

@@ -37,12 +37,21 @@ from .tools import set_approval_hook
 from .voice import VoiceManager, voice_available
 
 
-# Fenway palette
-NAVY = "#0C2340"
-GREEN = "#1E5631"
-RED = "#BD3039"
-ACCENT = "#2ECC71"
-MUTED = "#5D6D7E"
+from .theme import (
+    ACCENT,
+    BRUINS_GOLD,
+    CELTICS_GREEN,
+    CELTICS_GREEN_BRIGHT,
+    FENWAY_NIGHT,
+    GREEN,
+    MUTED,
+    NAVY,
+    NAVY_MID,
+    RED,
+    TAGLINE,
+    TEXT_MUTED,
+    TEXT_PRIMARY,
+)
 
 
 class ApprovalScreen(ModalScreen[bool]):
@@ -242,12 +251,13 @@ if TEXTUAL_AVAILABLE:
 
         CSS = f"""
         Screen {{
-            background: {NAVY};
+            background: {FENWAY_NIGHT};
         }}
 
         Header {{
-            background: {GREEN};
-            color: white;
+            background: {NAVY};
+            color: {TEXT_PRIMARY};
+            border-bottom: solid {CELTICS_GREEN};
         }}
 
         Footer {{
@@ -257,42 +267,43 @@ if TEXTUAL_AVAILABLE:
         #status-bar {{
             dock: top;
             height: 1;
-            background: {GREEN};
-            color: #ECF0F1;
+            background: {NAVY};
+            color: {TEXT_MUTED};
+            border-bottom: solid {CELTICS_GREEN};
             padding: 0 1;
         }}
 
         #hero {{
             height: 3;
             background: {NAVY};
-            border-bottom: solid {RED};
+            border-bottom: solid {BRUINS_GOLD};
             padding: 0 1;
             content-align: center middle;
         }}
 
         #hero-title {{
             text-style: bold;
-            color: {ACCENT};
+            color: {BRUINS_GOLD};
         }}
 
         #toolbar {{
             dock: bottom;
             height: 3;
-            background: #0A1A2E;
-            border-top: solid {GREEN};
+            background: {NAVY_MID};
+            border-top: solid {CELTICS_GREEN};
             padding: 0 1;
         }}
 
         #toolbar Button {{
             min-width: 10;
             margin: 0 1 0 0;
-            background: {GREEN};
+            background: {CELTICS_GREEN};
             color: white;
         }}
 
         #toolbar Button:hover {{
-            background: {ACCENT};
-            color: {NAVY};
+            background: {CELTICS_GREEN_BRIGHT};
+            color: {TEXT_PRIMARY};
         }}
 
         #mic-btn.listening {{
@@ -311,26 +322,26 @@ if TEXTUAL_AVAILABLE:
         #input-row {{
             dock: bottom;
             height: 3;
-            border-top: solid {GREEN};
+            border-top: solid {CELTICS_GREEN};
             padding: 0 1;
-            background: #0A1A2E;
+            background: {NAVY_MID};
         }}
 
         #input-row:focus-within {{
-            background: #0E2A4A;
+            background: {NAVY};
         }}
 
         #user-input {{
             width: 1fr;
-            border: solid {ACCENT};
-            background: {NAVY};
-            color: white;
+            border: solid {BRUINS_GOLD};
+            background: {FENWAY_NIGHT};
+            color: {TEXT_PRIMARY};
             min-height: 3;
         }}
 
         #user-input:focus {{
-            border: thick {ACCENT};
-            background: #0E2A4A;
+            border: thick {BRUINS_GOLD};
+            background: {NAVY};
         }}
 
         #user-input.-disabled {{
@@ -346,11 +357,11 @@ if TEXTUAL_AVAILABLE:
         }}
 
         .msg-user {{
-            color: #85C1E9;
+            color: {BRUINS_GOLD};
         }}
 
         .msg-agent {{
-            color: #A9DFBF;
+            color: {CELTICS_GREEN_BRIGHT};
         }}
 
         .msg-system {{
@@ -393,7 +404,7 @@ if TEXTUAL_AVAILABLE:
             yield Header(show_clock=True)
             yield DeckStatusBar(id="status-bar")
             yield Label(
-                f"⚾ CHAHLIE v{APP_VERSION} \"{APP_CODENAME}\" — Steam Deck",
+                f"⚾ CHAHLIE v{APP_VERSION} \"{APP_CODENAME}\" — {TAGLINE}",
                 id="hero-title",
             )
             yield RichLog(id="chat-log", highlight=True, markup=True, wrap=True)
@@ -499,16 +510,16 @@ if TEXTUAL_AVAILABLE:
             return self.query_one("#chat-log", RichLog)
 
         def _log_user(self, text: str) -> None:
-            self._chat().write(f"[bold #85C1E9]You:[/] {text}")
+            self._chat().write(f"[bold {BRUINS_GOLD}]You:[/] {text}")
 
         def _log_agent(self, text: str) -> None:
-            self._chat().write(f"[bold #A9DFBF]Chahlie:[/] {text}")
+            self._chat().write(f"[bold {CELTICS_GREEN_BRIGHT}]Chahlie:[/] {text}")
 
         def _log_system(self, text: str) -> None:
             self._chat().write(f"[dim]{text}[/dim]")
 
         def _log_tool(self, tool: str, detail: str = "") -> None:
-            line = f"[bold #F5B041]⚙ {tool}[/]"
+            line = f"[bold {BRUINS_GOLD}]⚙ {tool}[/]"
             if detail:
                 line += f" [dim]{detail}[/]"
             self._chat().write(line)

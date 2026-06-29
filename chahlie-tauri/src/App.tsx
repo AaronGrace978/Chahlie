@@ -11,57 +11,80 @@ import {
   saveApiKey,
   streamChat,
 } from "./api";
+import { BostonBanner } from "./components/BostonBanner";
+import {
+  BeerMugIcon,
+  ChahlieLogoMark,
+  GreenMonsterIcon,
+  MassAveSignIcon,
+  ThinkingCapIcon,
+} from "./components/BostonIcons";
+import "./theme.css";
 import "./App.css";
 
 function uid() {
   return Math.random().toString(36).slice(2);
 }
 
-function eventToMessages(evt: AgentEvent, streamingId: string | null): {
-  messages: ChatMessage[];
-  streamingId: string | null;
-  streamingText: string;
-} {
-  const messages: ChatMessage[] = [];
-  let nextId = streamingId;
-  let streamingText = "";
-
-  switch (evt.type) {
-    case "text": {
-      const streaming = evt.data?.streaming === true;
-      if (streaming) {
-        return { messages: [], streamingId: nextId, streamingText: evt.content };
-      }
-      messages.push({ id: uid(), role: "agent", text: evt.content });
-      break;
+function MessageIcon({ role, text }: { role: ChatMessage["role"]; text: string }) {
+  if (role === "error") return <MassAveSignIcon size={18} />;
+  if (role === "tool") {
+    return text.startsWith("✓") ? (
+      <GreenMonsterIcon size={18} />
+    ) : (
+      <MassAveSignIcon size={18} />
+    );
+  }
+  if (role === "system") {
+    const lower = text.toLowerCase();
+    if (lower.includes("thinking") || lower.includes("retryin") || lower.includes("💭")) {
+      return <ThinkingCapIcon size={18} />;
     }
+    if (lower.includes("cost") || lower.includes("💰")) {
+      return <GreenMonsterIcon size={18} />;
+    }
+  }
+  return null;
+}
+
+function eventToMessages(evt: AgentEvent): ChatMessage[] {
+  switch (evt.type) {
+    case "text":
+      if (evt.data?.streaming === true) return [];
+      return [{ id: uid(), role: "agent", text: evt.content }];
     case "thinking":
+      return [{ id: uid(), role: "system", text: evt.content }];
     case "reflection":
     case "cost":
-      messages.push({ id: uid(), role: "system", text: evt.content });
-      break;
+      return [{ id: uid(), role: "system", text: evt.content }];
     case "tool_use":
-      messages.push({
-        id: uid(),
-        role: "tool",
-        text: String(evt.data?.tool ?? "tool"),
-      });
-      break;
+      return [{ id: uid(), role: "tool", text: String(evt.data?.tool ?? "tool") }];
     case "tool_result":
-      messages.push({
-        id: uid(),
-        role: "system",
-        text: `${evt.data?.success ? "✓" : "✗"} ${evt.data?.tool}: ${evt.content.slice(0, 120)}`,
-      });
-      break;
+      return [
+        {
+          id: uid(),
+          role: "system",
+          text: `${evt.data?.success ? "✓" : "✗"} ${evt.data?.tool}: ${evt.content.slice(0, 120)}`,
+        },
+      ];
     case "error":
-      messages.push({ id: uid(), role: "error", text: evt.content });
-      break;
+      return [{ id: uid(), role: "error", text: evt.content }];
     default:
-      break;
+      return [];
   }
+}
 
-  return { messages, streamingId: null, streamingText };
+function renderMessageBody(text: string) {
+  const parts = text.split(/(`[^`]+`)/g);
+  return parts.map((part, i) =>
+    part.startsWith("`") && part.endsWith("`") ? (
+      <code key={i} className="inline-code">
+        {part.slice(1, -1)}
+      </code>
+    ) : (
+      <span key={i}>{part}</span>
+    ),
+  );
 }
 
 export default function App() {
@@ -132,10 +155,8 @@ export default function App() {
           setLiveAgent(streamBuf);
           return;
         }
-        const { messages: added } = eventToMessages(evt, null);
-        if (added.length) {
-          setMessages((m) => [...m, ...added]);
-        }
+        const added = eventToMessages(evt);
+        if (added.length) setMessages((m) => [...m, ...added]);
       });
       if (streamBuf) {
         setMessages((m) => [...m, { id: uid(), role: "agent", text: streamBuf }]);
@@ -184,36 +205,56 @@ export default function App() {
 
   if (error) {
     return (
-      <div className="app error-screen">
-        <h1>⚾ Chahlie</h1>
-        <pre>{error}</pre>
+      <div className="app fenway-bg error-screen">
+        <BostonBanner compact />
+        <div className="error-card">
+          <MassAveSignIcon size={32} />
+          <h2>Something went wrong</h2>
+          <pre>{error}</pre>
+        </div>
       </div>
     );
   }
 
   if (!status || !base) {
-    return <div className="app loading">Starting Chahlie…</div>;
+    return (
+      <div className="app fenway-bg loading-screen">
+        <BeerMugIcon size={40} />
+        <p>Chahlie's grabbin' a beer while the backend starts…</p>
+      </div>
+    );
   }
 
   if (status.needs_api_key) {
     return (
-      <div className="app setup">
+      <div className="app fenway-bg setup">
+        <BostonBanner status={status} />
         <div className="setup-card">
-          <h1>⚾ Welcome to Chahlie</h1>
-          <p>Paste your free Ollama Cloud API key to start.</p>
-          <a href="https://ollama.com/settings/keys" target="_blank" rel="noreferrer">
+          <ChahlieLogoMark size={56} />
+          <h2>Welcome to Chahlie</h2>
+          <p className="setup-tagline">You're wicked smart — paste your key to start.</p>
+          <a
+            className="setup-link"
+            href="https://ollama.com/settings/keys"
+            target="_blank"
+            rel="noreferrer"
+          >
             ollama.com/settings/keys
           </a>
           <input
             type="password"
-            placeholder="Paste API key…"
+            placeholder="Paste Ollama API key…"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && onSaveKey()}
           />
-          {keyError && <p className="key-error">{keyError}</p>}
-          <button type="button" onClick={onSaveKey} disabled={apiKey.trim().length < 8}>
-            Start Chahlie
+          {keyError && (
+            <p className="notice warning">
+              <MassAveSignIcon size={16} /> {keyError}
+            </p>
+          )}
+          <button type="button" className="btn-primary" onClick={onSaveKey} disabled={apiKey.trim().length < 8}>
+            <GreenMonsterIcon size={18} /> Start Chahlie
           </button>
         </div>
       </div>
@@ -221,28 +262,35 @@ export default function App() {
   }
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <span className="brand">⚾ CHAHLIE v{status.version} "{status.codename}"</span>
-        <span className="meta">
-          ☁ {status.backend} · {status.model} · {status.cost}
-        </span>
-      </header>
+    <div className="app fenway-bg">
+      <BostonBanner status={status} />
 
       <main className="chat" ref={logRef}>
         {messages.map((m) => (
           <div key={m.id} className={`bubble ${m.role}`}>
-            {m.role === "user" && <strong>You: </strong>}
-            {m.role === "agent" && <strong>Chahlie: </strong>}
-            {m.role === "error" && <strong>✗ </strong>}
-            {m.role === "tool" && <strong>⚙ </strong>}
-            {m.text}
+            <div className="bubble-head">
+              <MessageIcon role={m.role} text={m.text} />
+              {m.role === "user" && <strong>You</strong>}
+              {m.role === "agent" && <strong>Chahlie</strong>}
+              {m.role === "error" && <strong>Heads up</strong>}
+              {m.role === "tool" && <strong>Tool</strong>}
+            </div>
+            <div className="bubble-body">{renderMessageBody(m.text)}</div>
           </div>
         ))}
         {liveAgent && (
-          <div className="bubble agent">
-            <strong>Chahlie: </strong>
-            {liveAgent}
+          <div className="bubble agent streaming">
+            <div className="bubble-head">
+              <ThinkingCapIcon size={18} />
+              <strong>Chahlie</strong>
+            </div>
+            <div className="bubble-body">{renderMessageBody(liveAgent)}</div>
+          </div>
+        )}
+        {busy && !liveAgent && (
+          <div className="bubble system thinking-row">
+            <ThinkingCapIcon size={20} />
+            <span>Chahlie's got his thinking cap on…</span>
           </div>
         )}
       </main>
@@ -252,13 +300,13 @@ export default function App() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send()}
-          placeholder={busy ? "Chahlie is thinking…" : "Type a message…"}
+          placeholder={busy ? "Thinking…" : "Ask Chahlie anything…"}
           disabled={busy}
         />
-        <button type="button" onClick={send} disabled={busy || !input.trim()}>
+        <button type="button" className="btn-primary" onClick={send} disabled={busy || !input.trim()}>
           Send
         </button>
-        <button type="button" className="ghost" onClick={onClear} disabled={busy}>
+        <button type="button" className="btn-secondary" onClick={onClear} disabled={busy}>
           Clear
         </button>
       </footer>
@@ -266,14 +314,17 @@ export default function App() {
       {approval && (
         <div className="modal-backdrop">
           <div className="modal">
-            <h2>⚠ Approval needed</h2>
+            <div className="modal-head">
+              <MassAveSignIcon size={28} />
+              <h2>Approval needed</h2>
+            </div>
             <p className="reason">{approval.reason}</p>
-            <pre>{approval.command}</pre>
+            <pre className="code-block">{approval.command}</pre>
             <div className="modal-actions">
-              <button type="button" className="approve" onClick={() => onApproval(true)}>
-                Approve
+              <button type="button" className="btn-primary" onClick={() => onApproval(true)}>
+                <GreenMonsterIcon size={16} /> Approve
               </button>
-              <button type="button" className="deny" onClick={() => onApproval(false)}>
+              <button type="button" className="btn-danger" onClick={() => onApproval(false)}>
                 Deny
               </button>
             </div>

@@ -1,0 +1,45 @@
+/* Chahlie — Fenway at Night design system */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Oswald:wght@500;600;700&display=swap");
+
+:root {
+  /* Brand */
+  --celtics-green: #007a33;
+  --celtics-green-bright: #008348;
+  --red-sox-navy: #0c2340;
+  --red-sox-red: #bd3039;
+  --bruins-gold: #ffb81c;
+  --bruins-gold-dim: #c49200;
+
+  /* Fenway at night */
+  --fenway-night: #050f1a;
+  --fenway-sky: #0a1628;
+  --fenway-field: #0d1f12;
+  --ironworks: #1a2332;
+
+  /* Text — newspaper clean */
+  --text-primary: #fafafa;
+  --text-muted: #9ca3af;
+  --text-code: #e2e8f0;
+
+  /* Semantic */
+  --color-primary: var(--celtics-green);
+  --color-secondary: var(--red-sox-navy);
+  --color-accent: var(--bruins-gold);
+  --color-success: var(--celtics-green-bright);
+  --color-warning: var(--bruins-gold);
+  --color-danger: var(--red-sox-red);
+  --color-bg: var(--fenway-night);
+  --color-surface: var(--red-sox-navy);
+  --color-surface-raised: var(--fenway-sky);
+
+  /* Typography */
+  --font-body: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-header: "Oswald", "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", "Consolas", monospace;
+
+  font-family: var(--font-body);
+  font-size: 16px;
+  color: var(--text-primary);
+  background: var(--color-bg);
+}

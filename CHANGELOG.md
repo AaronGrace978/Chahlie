@@ -2,6 +2,19 @@
 
 All notable changes to Chahlie will be documented in this file.
 
+## [2.6.1] "Fenway at Night" - 2026-06-29
+
+### Added
+
+- **Boston design system** (`chahlie/theme.py`) — Celtics green, Red Sox navy, Bruins gold, Fenway-at-night backgrounds.
+- **Tauri UI refresh** — Boston banner with tagline, logo mark, Fenway/Citizens skyline silhouette.
+- **State icons** — Green Monster (success), Mass Ave sign (warning), beer mug (loading), thinking cap (thinking).
+- **Typography** — Inter body, Oswald industrial headers, JetBrains Mono for inline code.
+
+### Changed
+
+- Deck Textual UI aligned to the same Fenway-at-night palette and tagline.
+
 ## [2.6.0] "Green Monster GUI" - 2026-06-29
 
 ### Added
