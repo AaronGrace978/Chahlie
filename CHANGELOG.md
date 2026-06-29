@@ -2,6 +2,18 @@
 
 All notable changes to Chahlie will be documented in this file.
 
+## [2.6.5] "Homecoming" - 2026-06-29
+
+### Fixed
+
+- **Steam Deck white screen / lingering EGL crash** — direct AppImage launches now
+  force `GDK_BACKEND=x11` in addition to the prior software rendering defaults.
+  This routes GTK/WebKit through XWayland instead of the fragile gamescope
+  Wayland/EGL path.
+- **Blank WebKit AppImage window** — disable WebKit's bubblewrap sandbox inside
+  the AppImage (`WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1`). On SteamOS the
+  sandbox can fail before React paints, leaving an all-white window.
+
 ## [2.6.4] "Homecoming" - 2026-06-29
 
 ### Fixed

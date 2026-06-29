@@ -374,15 +374,24 @@ fn chahlie_data_dir() -> String {
 ///
 /// On the Steam Deck (and some Mesa setups) WebKitGTK fails to create a GPU
 /// context and aborts with `Could not create default EGL display:
-/// EGL_BAD_PARAMETER`. Disabling the DMABUF renderer and falling back to
-/// software GL sidesteps the broken EGL path entirely — fine for a chat UI.
+/// EGL_BAD_PARAMETER`. Force XWayland plus conservative rendering defaults to
+/// sidestep the broken Wayland/EGL path entirely — fine for a chat UI.
+///
+/// WebKit's bubblewrap sandbox can also fail inside an AppImage on SteamOS,
+/// which presents as an all-white window because the web process dies before
+/// React paints. Disabling that sandbox is acceptable here: the app only loads
+/// its bundled UI and talks to a localhost backend.
 /// Every value is only set when the user hasn't already exported their own,
 /// so power users keep full control.
 #[cfg(target_os = "linux")]
 fn ensure_render_env() {
     let defaults = [
+        // gamescope/Wayland + WebKitGTK is the Deck path that throws EGL errors.
+        // X11 routes through XWayland, which is stable for this AppImage.
+        ("GDK_BACKEND", "x11"),
         ("WEBKIT_DISABLE_DMABUF_RENDERER", "1"),
         ("WEBKIT_DISABLE_COMPOSITING_MODE", "1"),
+        ("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1"),
         // Software GL: slower but immune to the Deck's EGL_BAD_PARAMETER crash.
         ("LIBGL_ALWAYS_SOFTWARE", "1"),
     ];
