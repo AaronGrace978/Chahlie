@@ -545,7 +545,8 @@ def run_interactive():
 @click.option("--llm-reflection", is_flag=True, help="Enable LLM-based reflection on failures")
 @click.option("--semantic-memory", is_flag=True, help="Enable semantic (embedding) memory retrieval")
 @click.option("--tui", is_flag=True, help="Launch the experimental Textual TUI instead of the classic CLI")
-def main(version, about, backend, model, no_memory, no_stream, no_approval, llm_reflection, semantic_memory, tui):
+@click.option("--deck", is_flag=True, help="Launch the Steam Deck UI (gamepad + voice)")
+def main(version, about, backend, model, no_memory, no_stream, no_approval, llm_reflection, semantic_memory, tui, deck):
     """
     Chahlie - The Boston Coding Agent
     
@@ -588,6 +589,22 @@ def main(version, about, backend, model, no_memory, no_stream, no_approval, llm_
     from importlib import reload
     from . import config
     reload(config)
+
+    if deck:
+        os.environ["CHAHLIE_DECK_MODE"] = "true"
+        if not check_backend():
+            sys.exit(1)
+        try:
+            from .deck_ui import run_deck
+        except ImportError:
+            ui.print_error(
+                "Steam Deck UI needs Textual. Run:\n"
+                "  pip install -r requirements-deck.txt\n"
+                "Then try again with --deck."
+            )
+            sys.exit(1)
+        run_deck()
+        return
 
     if tui:
         try:

@@ -1,0 +1,14 @@
+# Chahlie Steam Deck Edition — extra dependencies
+# Install: pip install -r requirements.txt -r requirements-deck.txt
+
+# Core (if not already installed)
+-r requirements.txt
+
+# Deck UI (Textual is in requirements.txt)
+# Voice input/output
+SpeechRecognition>=3.10.0
+PyAudio>=0.2.14
+pyttsx3>=2.90
+
+# Optional offline speech (download a Vosk model, set CHAHLIE_VOSK_MODEL)
+# vosk>=0.3.45

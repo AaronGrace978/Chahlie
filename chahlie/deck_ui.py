@@ -1,0 +1,557 @@
+"""
+Chahlie Steam Deck UI — gamepad-friendly, voice-enabled, 1280×800 polish.
+
+Launch with:  python -m chahlie --deck
+"""
+
+from __future__ import annotations
+
+import asyncio
+from typing import Optional
+
+try:
+    from textual import on, work
+    from textual.app import App, ComposeResult
+    from textual.binding import Binding
+    from textual.containers import Horizontal, Vertical, VerticalScroll
+    from textual.screen import ModalScreen
+    from textual.widgets import Button, Footer, Header, Input, Label, RichLog, Static
+    from textual.reactive import reactive
+    TEXTUAL_AVAILABLE = True
+except ImportError:
+    TEXTUAL_AVAILABLE = False
+
+from .agent import ChahlieAgent
+from .config import (
+    APP_CODENAME,
+    APP_VERSION,
+    BACKEND,
+    OLLAMA_CLOUD_MODEL,
+    OLLAMA_LOCAL_MODEL,
+    VOICE_TTS_ENABLED,
+)
+from .personality import get_greeting
+from .tools import set_approval_hook
+from .voice import VoiceManager, voice_available
+
+
+# Fenway palette
+NAVY = "#0C2340"
+GREEN = "#1E5631"
+RED = "#BD3039"
+ACCENT = "#2ECC71"
+MUTED = "#5D6D7E"
+
+
+class ApprovalScreen(ModalScreen[bool]):
+    """Gamepad-friendly yes/no for dangerous shell commands."""
+
+    CSS = f"""
+    ApprovalScreen {{
+        align: center middle;
+    }}
+    #approval-box {{
+        width: 90%;
+        max-width: 72;
+        height: auto;
+        max-height: 80%;
+        background: {NAVY};
+        border: thick {RED};
+        padding: 1 2;
+    }}
+  #approval-cmd {{
+        color: #F8F9FA;
+        margin: 1 0;
+    }}
+    #approval-btns {{
+        height: 5;
+        margin-top: 1;
+    }}
+    #approve-btn {{
+        background: {GREEN};
+        color: white;
+        min-width: 16;
+        margin: 0 1;
+    }}
+    #deny-btn {{
+        background: {RED};
+        color: white;
+        min-width: 16;
+        margin: 0 1;
+    }}
+    """
+
+    BINDINGS = [
+        Binding("y", "approve", "Approve", show=False),
+        Binding("n", "deny", "Deny", show=False),
+        Binding("a", "approve", "Approve", show=False),
+        Binding("b", "deny", "Deny", show=False),
+        Binding("escape", "deny", "Deny", show=False),
+    ]
+
+    def __init__(self, command: str, reason: str):
+        super().__init__()
+        self.command = command
+        self.reason = reason
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="approval-box"):
+            yield Label("[bold yellow]⚠ APPROVAL NEEDED[/bold yellow]")
+            yield Label(f"Flagged as: [red]{self.reason}[/red]")
+            yield Static(f"$ {self.command}", id="approval-cmd")
+            yield Label(
+                "[dim]Only approve if you're sure. "
+                "A / Y = approve · B / N = deny[/dim]"
+            )
+            with Horizontal(id="approval-btns"):
+                yield Button("✓ Approve  (A)", id="approve-btn", variant="success")
+                yield Button("✗ Deny  (B)", id="deny-btn", variant="error")
+
+    @on(Button.Pressed, "#approve-btn")
+    def _btn_approve(self) -> None:
+        self.dismiss(True)
+
+    @on(Button.Pressed, "#deny-btn")
+    def _btn_deny(self) -> None:
+        self.dismiss(False)
+
+    def action_approve(self) -> None:
+        self.dismiss(True)
+
+    def action_deny(self) -> None:
+        self.dismiss(False)
+
+
+class DeckStatusBar(Static):
+    """Top strip: backend, model, cost, voice state."""
+
+    status_text = reactive("Chahlie Deck")
+
+    def render(self) -> str:
+        return self.status_text
+
+
+if TEXTUAL_AVAILABLE:
+
+    class ChahlieDeckApp(App):
+        """Steam Deck edition — touch buttons, voice, compact layout."""
+
+        TITLE = "Chahlie"
+        SUB_TITLE = "Steam Deck Edition"
+
+        CSS = f"""
+        Screen {{
+            background: {NAVY};
+        }}
+
+        Header {{
+            background: {GREEN};
+            color: white;
+        }}
+
+        Footer {{
+            background: {NAVY};
+        }}
+
+        #status-bar {{
+            dock: top;
+            height: 1;
+            background: {GREEN};
+            color: #ECF0F1;
+            padding: 0 1;
+        }}
+
+        #hero {{
+            height: 3;
+            background: {NAVY};
+            border-bottom: solid {RED};
+            padding: 0 1;
+            content-align: center middle;
+        }}
+
+        #hero-title {{
+            text-style: bold;
+            color: {ACCENT};
+        }}
+
+        #toolbar {{
+            dock: bottom;
+            height: 3;
+            background: #0A1A2E;
+            border-top: solid {GREEN};
+            padding: 0 1;
+        }}
+
+        #toolbar Button {{
+            min-width: 10;
+            margin: 0 1 0 0;
+            background: {GREEN};
+            color: white;
+        }}
+
+        #toolbar Button:hover {{
+            background: {ACCENT};
+            color: {NAVY};
+        }}
+
+        #mic-btn.listening {{
+            background: {RED};
+            color: white;
+        }}
+
+        #chat-log {{
+            border: solid {RED};
+            margin: 0 1;
+            padding: 0 1;
+            scrollbar-background: {NAVY};
+            scrollbar-color: {GREEN};
+        }}
+
+        #input-row {{
+            dock: bottom;
+            height: 3;
+            border-top: solid {GREEN};
+            padding: 0 1;
+            background: #0A1A2E;
+        }}
+
+        #user-input {{
+            width: 1fr;
+            border: solid {ACCENT};
+            background: {NAVY};
+            color: white;
+        }}
+
+        .msg-user {{
+            color: #85C1E9;
+        }}
+
+        .msg-agent {{
+            color: #A9DFBF;
+        }}
+
+        .msg-system {{
+            color: {MUTED};
+        }}
+
+        .msg-tool {{
+            color: #F5B041;
+        }}
+
+        .msg-error {{
+            color: #E74C3C;
+        }}
+        """
+
+        BINDINGS = [
+            Binding("ctrl+c", "quit", "Quit"),
+            Binding("f1", "help", "Help"),
+            Binding("f2", "clear", "Clear"),
+            Binding("f3", "memory", "Memory"),
+            Binding("f4", "toggle_mic", "Talk"),
+            Binding("f5", "toggle_tts", "TTS"),
+            Binding("f6", "stop_speech", "Stop voice"),
+            Binding("ctrl+l", "clear", "Clear", show=False),
+        ]
+
+        def __init__(self):
+            super().__init__()
+            self.agent: Optional[ChahlieAgent] = None
+            self.voice = VoiceManager()
+            self._loop: Optional[asyncio.AbstractEventLoop] = None
+            self._listening = False
+            self._tts_on = VOICE_TTS_ENABLED
+
+        def compose(self) -> ComposeResult:
+            yield Header(show_clock=True)
+            yield DeckStatusBar(id="status-bar")
+            yield Label(
+                f"⚾ CHAHLIE v{APP_VERSION} \"{APP_CODENAME}\" — Steam Deck",
+                id="hero-title",
+            )
+            yield RichLog(id="chat-log", highlight=True, markup=True, wrap=True)
+            with Horizontal(id="toolbar"):
+                yield Button("Help", id="btn-help", variant="primary")
+                yield Button("Clear", id="btn-clear")
+                yield Button("Memory", id="btn-memory")
+                yield Button("🎤 Talk", id="mic-btn")
+                yield Button("🔊 TTS", id="tts-btn")
+                yield Button("Quit", id="btn-quit", variant="warning")
+            with Horizontal(id="input-row"):
+                yield Input(
+                    placeholder="Type or press F4 / 🎤 Talk to speak…",
+                    id="user-input",
+                )
+            yield Footer()
+
+        def on_mount(self) -> None:
+            self._loop = asyncio.get_running_loop()
+            set_approval_hook(self._approval_prompter)
+            self.agent = ChahlieAgent()
+            self._refresh_status()
+            self._log_system(get_greeting())
+            self._log_system(
+                "Deck controls: F1 Help · F2 Clear · F3 Memory · "
+                "F4 Talk · F5 TTS · Enter send"
+            )
+            if voice_available():
+                self._log_system(f"Voice: {self.voice.status_line()}")
+            else:
+                self._log_system(
+                    "[dim]Voice extras not installed — "
+                    "pip install -r requirements-deck.txt[/dim]"
+                )
+            primer = self.agent.get_primer_summary()
+            if primer.get("primed"):
+                self._log_system(
+                    f"Project: {primer.get('name')} "
+                    f"({primer.get('language', '?')} / {primer.get('framework', '?')})"
+                )
+            if self.agent.plugin_warnings:
+                for w in self.agent.plugin_warnings:
+                    self._log_system(f"[yellow]plugin: {w}[/yellow]")
+            self.query_one("#user-input", Input).focus()
+
+        def _chat(self) -> RichLog:
+            return self.query_one("#chat-log", RichLog)
+
+        def _log_user(self, text: str) -> None:
+            self._chat().write(f"[bold #85C1E9]You:[/] {text}")
+
+        def _log_agent(self, text: str) -> None:
+            self._chat().write(f"[bold #A9DFBF]Chahlie:[/] {text}")
+
+        def _log_system(self, text: str) -> None:
+            self._chat().write(f"[dim]{text}[/dim]")
+
+        def _log_tool(self, tool: str, detail: str = "") -> None:
+            line = f"[bold #F5B041]⚙ {tool}[/]"
+            if detail:
+                line += f" [dim]{detail}[/]"
+            self._chat().write(line)
+
+        def _log_error(self, text: str) -> None:
+            self._chat().write(f"[bold #E74C3C]✗ {text}[/]")
+
+        def _refresh_status(self) -> None:
+            if not self.agent:
+                return
+            c = self.agent.get_cost_summary()
+            bar = self.query_one("#status-bar", DeckStatusBar)
+            backend_label = c["backend"]
+            if BACKEND == "ollama-cloud":
+                model = OLLAMA_CLOUD_MODEL
+            elif BACKEND == "ollama-local":
+                model = OLLAMA_LOCAL_MODEL
+            else:
+                model = c.get("model", "?")
+            tts = "TTS on" if self._tts_on else "TTS off"
+            bar.status_text = (
+                f"☁ {backend_label} · {model} · {c['formatted']} · "
+                f"{self.voice.status_line()} · {tts}"
+            )
+
+        def _approval_prompter(self, command: str, reason: str) -> bool:
+            """Block the agent thread until the user picks approve/deny."""
+            if not self._loop:
+                return False
+            future = asyncio.run_coroutine_threadsafe(
+                self.push_screen_wait(ApprovalScreen(command, reason)),
+                self._loop,
+            )
+            try:
+                return bool(future.result(timeout=300))
+            except Exception:
+                return False
+
+        def _handle_slash(self, msg: str) -> bool:
+            """Return True if handled (don't send to agent)."""
+            cmd = msg.lower().strip()
+            if cmd in ("/quit", "/exit"):
+                self.exit()
+                return True
+            if cmd == "/clear":
+                self.action_clear()
+                return True
+            if cmd == "/help":
+                self.action_help()
+                return True
+            if cmd in ("/memory", "/mem"):
+                self.action_memory()
+                return True
+            if cmd == "/voice":
+                self.action_toggle_mic()
+                return True
+            if cmd == "/tts":
+                self.action_toggle_tts()
+                return True
+            if cmd.startswith("/"):
+                self._log_system(f"Unknown command {cmd}. Try /help /clear /memory.")
+                return True
+            return False
+
+        def _process_message(self, msg: str) -> None:
+            if not self.agent:
+                return
+            buffer = ""
+            streaming = False
+            for evt in self.agent.process(msg):
+                if evt.type == "text":
+                    if evt.data and evt.data.get("streaming"):
+                        buffer += evt.content
+                        streaming = True
+                    else:
+                        if streaming and buffer:
+                            self._log_agent(buffer)
+                            if self._tts_on:
+                                self.voice.speak(buffer)
+                            buffer = ""
+                            streaming = False
+                        self._log_agent(evt.content)
+                        if self._tts_on:
+                            self.voice.speak(evt.content)
+                elif evt.type == "thinking":
+                    self._log_system(f"💭 {evt.content}")
+                elif evt.type == "tool_use":
+                    if streaming and buffer:
+                        self._log_agent(buffer)
+                        buffer = ""
+                        streaming = False
+                    self._log_tool(evt.data.get("tool", "?"))
+                elif evt.type == "tool_result":
+                    ok = "✓" if evt.data.get("success") else "✗"
+                    snippet = str(evt.content)[:160].replace("\n", " ")
+                    self._log_system(f"{ok} {evt.data.get('tool')}: {snippet}")
+                elif evt.type == "reflection":
+                    self._log_system(f"💡 {evt.content}")
+                elif evt.type == "error":
+                    self._log_error(evt.content)
+                elif evt.type == "cost":
+                    self._log_system(f"💰 {evt.content}")
+            if streaming and buffer:
+                self._log_agent(buffer)
+                if self._tts_on:
+                    self.voice.speak(buffer)
+            self._refresh_status()
+
+        @on(Input.Submitted, "#user-input")
+        def on_input_submitted(self, event: Input.Submitted) -> None:
+            msg = event.value.strip()
+            if not msg:
+                return
+            self.query_one("#user-input", Input).value = ""
+            if self._handle_slash(msg):
+                return
+            self._log_user(msg)
+            self._process_message(msg)
+
+        @on(Button.Pressed, "#btn-help")
+        def _btn_help(self) -> None:
+            self.action_help()
+
+        @on(Button.Pressed, "#btn-clear")
+        def _btn_clear(self) -> None:
+            self.action_clear()
+
+        @on(Button.Pressed, "#btn-memory")
+        def _btn_memory(self) -> None:
+            self.action_memory()
+
+        @on(Button.Pressed, "#mic-btn")
+        def _btn_mic(self) -> None:
+            self.action_toggle_mic()
+
+        @on(Button.Pressed, "#tts-btn")
+        def _btn_tts(self) -> None:
+            self.action_toggle_tts()
+
+        @on(Button.Pressed, "#btn-quit")
+        def _btn_quit(self) -> None:
+            self.exit()
+
+        def action_help(self) -> None:
+            self._log_system(
+                "[bold]Deck commands[/]: /help /clear /memory /voice /tts /quit\n"
+                "[bold]Keys[/]: F1 Help · F2 Clear · F3 Memory · F4 Talk · F5 TTS\n"
+                "[bold]Steam Input[/]: map A→Enter, B→Esc, X→F4, Y→F1 for couch mode"
+            )
+
+        def action_clear(self) -> None:
+            if self.agent:
+                self.agent.reset()
+            self._chat().clear()
+            self._log_system("Conversation cleared.")
+            self._refresh_status()
+
+        def action_memory(self) -> None:
+            if not self.agent or not self.agent.memory:
+                self._log_system("Memory disabled.")
+                return
+            s = self.agent.get_memory_summary()["summary"]
+            self._log_system(
+                f"Sessions: {s['total_sessions']} · "
+                f"Learnings: {s['total_learnings']} · "
+                f"Reflections: {s['total_reflections']}"
+            )
+
+        def action_toggle_tts(self) -> None:
+            self._tts_on = not self._tts_on
+            state = "on" if self._tts_on else "off"
+            self._log_system(f"Text-to-speech {state}.")
+            if not self._tts_on:
+                self.voice.stop_speaking()
+            self._refresh_status()
+
+        def action_stop_speech(self) -> None:
+            self.voice.stop_speaking()
+            self._log_system("Stopped speaking.")
+
+        def action_toggle_mic(self) -> None:
+            if self._listening:
+                return
+            if not self.voice.can_listen:
+                self._log_error(
+                    "Mic unavailable. Install: pip install -r requirements-deck.txt"
+                )
+                return
+            self._start_listen()
+
+        @work(thread=True)
+        def _start_listen(self) -> None:
+            self._listening = True
+            self.call_from_thread(self._set_mic_listening, True)
+            try:
+                def status(s: str) -> None:
+                    self.call_from_thread(self._log_system, f"🎤 {s}…")
+
+                text = self.voice.listen(on_status=status)
+                self.call_from_thread(self._on_voice_result, text)
+            except Exception as exc:
+                self.call_from_thread(self._log_error, str(exc))
+            finally:
+                self._listening = False
+                self.call_from_thread(self._set_mic_listening, False)
+
+        def _set_mic_listening(self, on: bool) -> None:
+            btn = self.query_one("#mic-btn", Button)
+            btn.add_class("listening") if on else btn.remove_class("listening")
+            btn.label = "🎤 Listening…" if on else "🎤 Talk"
+
+        def _on_voice_result(self, text: str) -> None:
+            if not text.strip():
+                return
+            self._log_user(f"🎤 {text}")
+            if self._handle_slash(text):
+                return
+            self._process_message(text)
+
+
+def run_deck() -> None:
+    if not TEXTUAL_AVAILABLE:
+        from . import ui
+        ui.print_error(
+            "Steam Deck UI needs Textual:\n"
+            "    pip install textual"
+        )
+        return
+    ChahlieDeckApp().run()
