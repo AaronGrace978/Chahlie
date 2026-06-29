@@ -10,7 +10,7 @@ if [[ -z "$APP" || ! -f "$APP" ]]; then
   echo "Usage: bash Launch-Chahlie-Tauri.sh /path/to/Chahlie.AppImage"
   echo ""
   echo "Download AppImage from:"
-  echo "  https://github.com/AaronGrace978/Chahlie/releases/tag/v2.6.1-tauri"
+  echo "  https://github.com/AaronGrace978/Chahlie/releases/tag/v2.6.3-tauri"
   exit 1
 fi
 

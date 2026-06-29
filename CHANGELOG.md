@@ -2,6 +2,40 @@
 
 All notable changes to Chahlie will be documented in this file.
 
+## [2.6.3] "Homecoming" - 2026-06-29
+
+The release build that actually runs on a Steam Deck. Three real bugs kept the
+Tauri AppImage from ever starting its Python backend once installed; all fixed
+and verified end-to-end against the bundled artifact.
+
+### Fixed
+
+- **Backend never found in installed app (critical)** — Tauri rewrites `../`
+  resource paths to `_up_`, so the bundled Python package lands at
+  `<resource_dir>/_up_/_up_/chahlie`, not `<resource_dir>/chahlie`. The launcher
+  only probed the latter, so the sidecar was never located outside dev. It now
+  probes the `_up_` depths (and honours `CHAHLIE_ROOT` only when valid).
+- **`No module named 'encodings'` on AppImage launch (critical)** — the bundled
+  AppRun runtime exports `PYTHONHOME`/`PYTHONPATH`/`LD_LIBRARY_PATH` pointing
+  inside the mounted image, which crashed any system Python we spawned. All
+  interpreter invocations now run through a helper that scrubs those vars.
+  (`--version` masked this — it exits 0 even with a poisoned `PYTHONHOME`, so
+  detection now uses a real `import`.)
+- **Saved API key ignored on cold start** — `config.py` called `load_dotenv()`
+  without honouring `CHAHLIE_ENV_FILE`, so a previously saved key at
+  `~/.local/share/chahlie/.env` was dropped and the welcome screen reappeared
+  every launch. It now loads that file (without clobbering explicit env vars).
+- **Version drift** — `Cargo.toml` was pinned at `2.6.0` while the bundle, web
+  app and package reported `2.6.2`; all sources now agree on `2.6.3`.
+
+### Changed
+
+- **Self-bootstrapping install** — the desktop app now creates and uses a
+  managed virtualenv at `~/.local/share/chahlie/venv` and installs deps there
+  (correct pip flags for venv vs. system, PEP 668 fallback, `ensurepip`). No
+  `pip`, `sudo`, `pacman` or `CHAHLIE_PYTHON` required on the Deck.
+- Deck/Tauri docs and install scripts updated for the new one-step flow.
+
 ## [2.6.2] - 2026-06-29
 
 ### Fixed
