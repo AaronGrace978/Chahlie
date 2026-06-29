@@ -165,6 +165,19 @@ cp .env.example .env
 python run.py
 ```
 
+### Steam Deck Edition (v2.5)
+
+Talk to Chahlie on your Deck with voice + a gamepad-friendly UI:
+
+```bash
+bash scripts/install-steam-deck.sh   # one-shot install
+chahlie-deck                         # launch
+```
+
+Or from source: `python -m chahlie --deck`
+
+See **[STEAM_DECK.md](STEAM_DECK.md)** for voice setup, Steam Input mappings, and troubleshooting.
+
 ## Usage
 
 ```bash

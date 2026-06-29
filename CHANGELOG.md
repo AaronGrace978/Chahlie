@@ -2,6 +2,28 @@
 
 All notable changes to Chahlie will be documented in this file.
 
+## [2.5.0] "Green Monster" - 2026-06-29
+
+Steam Deck release — gamepad-friendly UI, voice chat, and a one-shot installer.
+
+### Added
+
+- **Steam Deck UI** (`chahlie/deck_ui.py`) — Fenway-themed Textual interface
+  tuned for 1280×800. Touch toolbar, compact chat log, gamepad-friendly
+  approval modals (A/Y approve, B/N deny). Launch with `python -m chahlie --deck`
+  or `chahlie-deck` after install.
+
+- **Voice module** (`chahlie/voice.py`) — push-to-talk STT and TTS replies.
+  Google Web Speech by default; optional offline Vosk via `CHAHLIE_VOSK_MODEL`.
+  Toggle with `CHAHLIE_VOICE` / `CHAHLIE_VOICE_TTS`.
+
+- **Release packaging** — `scripts/install-steam-deck.sh`, `requirements-deck.txt`,
+  `.env.deck.example`, desktop shortcut, and `STEAM_DECK.md` guide.
+
+### CLI
+
+- New `--deck` flag routes to the Steam Deck UI (checks backend like the classic CLI).
+
 ## [2.4.0] "Juice Box" - 2026-04-21
 
 Three juicy upgrades that land as opt-in features so nothing changes for

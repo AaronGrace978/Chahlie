@@ -173,6 +173,15 @@ THEME = {
     "muted": "#7F8C8D",        # Muted gray
 }
 
+# --- Steam Deck / voice ---
+# Deck UI: python -m chahlie --deck
+DECK_MODE = os.getenv("CHAHLIE_DECK_MODE", "false").lower() in ("1", "true", "yes")
+VOICE_ENABLED = os.getenv("CHAHLIE_VOICE", "true").lower() in ("1", "true", "yes")
+VOICE_TTS_ENABLED = os.getenv("CHAHLIE_VOICE_TTS", "true").lower() in ("1", "true", "yes")
+VOICE_LANGUAGE = os.getenv("CHAHLIE_VOICE_LANGUAGE", "en-US")
+VOICE_LISTEN_TIMEOUT = float(os.getenv("CHAHLIE_VOICE_TIMEOUT", "8"))
+VOICE_TTS_RATE = int(os.getenv("CHAHLIE_VOICE_TTS_RATE", "175"))
+
 # App Info
 APP_NAME = "Chahlie"
 APP_TAGLINE = "The Boston Coding Agent"
