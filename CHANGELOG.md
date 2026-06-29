@@ -2,6 +2,17 @@
 
 All notable changes to Chahlie will be documented in this file.
 
+## [2.6.6] "Homecoming" - 2026-06-29
+
+### Fixed
+
+- **EGL still crashing on direct AppImage launch** — env vars set inside the Rust
+  binary were too late; WebKitGTK reads them at ELF load time. The release build
+  now patches `AppRun` to export Deck-safe defaults (`GDK_BACKEND=x11`, software
+  GL, WebKit sandbox off) *before* `AppRun.wrapped` starts.
+- Added `release/Start-Chahlie-Tauri.sh` — minimal launcher that sets display env
+  and execs the AppImage (use this instead of double-clicking the raw AppImage).
+
 ## [2.6.5] "Homecoming" - 2026-06-29
 
 ### Fixed

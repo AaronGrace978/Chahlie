@@ -10,7 +10,7 @@ if [[ -z "$APP" || ! -f "$APP" ]]; then
   echo "Usage: bash Launch-Chahlie-Tauri.sh /path/to/Chahlie.AppImage"
   echo ""
   echo "Download AppImage from:"
-  echo "  https://github.com/AaronGrace978/Chahlie/releases/tag/v2.6.3-tauri"
+  echo "  https://github.com/AaronGrace978/Chahlie/releases/latest"
   exit 1
 fi
 
@@ -19,7 +19,7 @@ export WEBKIT_DISABLE_COMPOSITING_MODE=1
 export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
 export GDK_BACKEND=x11
 # Software GL: dodges the Steam Deck's EGL_BAD_PARAMETER crash (chat UI = fine).
-export LIBGL_ALWAYS_SOFTWARE="${LIBGL_ALWAYS_SOFTWARE:-1}"
+export GSK_RENDERER="${GSK_RENDERER:-cairo}"
 # Steam Deck — use venv python (works without system pip / read-only root)
 VENV="${CHAHLIE_VENV:-$HOME/.local/share/chahlie/venv}"
 if [[ -x "$VENV/bin/python" ]]; then

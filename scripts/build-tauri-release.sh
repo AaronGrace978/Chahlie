@@ -20,6 +20,10 @@ cd "$TAURI_DIR"
 npm install
 npm run tauri build
 
+# Patch AppRun so Deck display defaults exist before WebKitGTK loads.
+chmod +x "$ROOT/scripts/patch-tauri-appimage-deck.sh"
+bash "$ROOT/scripts/patch-tauri-appimage-deck.sh"
+
 echo ""
 echo "✓ Tauri build complete. Artifacts:"
 find "$TAURI_DIR/src-tauri/target/release/bundle" -type f \( -name "*.deb" -o -name "*.AppImage" \) 2>/dev/null || true

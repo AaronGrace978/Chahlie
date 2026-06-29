@@ -45,6 +45,7 @@ jobs:
             chahlie-tauri/src-tauri/target/release/bundle/**/*.AppImage
             chahlie-tauri/src-tauri/target/release/bundle/**/*.deb
             release/Launch-Chahlie-Tauri.sh
+            release/Start-Chahlie-Tauri.sh
             scripts/install-tauri-deck.sh
             release/DECK-INSTALL.txt
           generate_release_notes: true
