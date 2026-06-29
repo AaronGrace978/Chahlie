@@ -409,12 +409,13 @@ class ChahlieAgent:
             self.model = ANTHROPIC_MODEL
         elif self.backend == "ollama-cloud":
             from ollama import Client
+            from . import config as cfg
             self.client = self._make_ollama_client(
                 Client,
-                host=OLLAMA_CLOUD_HOST,
-                headers={'Authorization': f'Bearer {OLLAMA_CLOUD_API_KEY}'},
+                host=cfg.OLLAMA_CLOUD_HOST,
+                headers={'Authorization': f'Bearer {cfg.OLLAMA_CLOUD_API_KEY}'},
             )
-            self.model = OLLAMA_CLOUD_MODEL
+            self.model = cfg.OLLAMA_CLOUD_MODEL
         else:  # ollama-local
             from ollama import Client
             self.client = self._make_ollama_client(Client, host=OLLAMA_LOCAL_HOST)

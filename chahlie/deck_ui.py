@@ -30,7 +30,7 @@ from .config import (
     OLLAMA_LOCAL_MODEL,
     VOICE_TTS_ENABLED,
 )
-from .deck_setup import needs_api_key_setup, reload_config, save_api_key
+from .deck_setup import needs_api_key_setup, reload_config, save_api_key, verify_api_key
 from .personality import get_greeting
 from .tools import set_approval_hook
 from .voice import VoiceManager, voice_available
@@ -145,6 +145,12 @@ class SetupScreen(ModalScreen[str]):
         width: 100%;
         margin-bottom: 1;
     }}
+    #setup-url {{
+        color: {ACCENT};
+    }}
+    #setup-error {{
+        color: #E74C3C;
+    }}
     #api-input {{
         margin: 1 0;
         border: solid {ACCENT};
@@ -179,6 +185,7 @@ class SetupScreen(ModalScreen[str]):
                 "Get a free key at ollama.com/settings/keys",
                 id="setup-url",
             )
+            yield Label("", id="setup-error")
             yield Input(
                 placeholder="Paste API key here…",
                 password=True,
@@ -194,7 +201,15 @@ class SetupScreen(ModalScreen[str]):
     @on(Input.Submitted, "#api-input")
     def _start(self, event=None) -> None:
         key = self.query_one("#api-input", Input).value.strip()
+        err = self.query_one("#setup-error", Label)
         if not key or len(key) < 8:
+            err.update("Key too short — paste the full key from ollama.com/settings/keys")
+            self.app.bell()
+            return
+        err.update("Checking key…")
+        ok, msg = verify_api_key(key)
+        if not ok:
+            err.update(msg)
             self.app.bell()
             return
         self.dismiss(key)
@@ -383,9 +398,20 @@ if TEXTUAL_AVAILABLE:
                     self._log_system("API key saved. You're good to go, kehd!")
                 else:
                     self._log_system(
-                        "[yellow]No API key yet — get one at ollama.com/settings/keys[/yellow]"
+                        "[yellow]No API key yet — type /key to add one[/yellow]"
                     )
             self._start_session()
+
+        @work
+        async def _change_api_key(self) -> None:
+            key = await self.push_screen_wait(SetupScreen())
+            if not key:
+                return
+            save_api_key(key)
+            reload_config()
+            self.agent = ChahlieAgent()
+            self._refresh_status()
+            self._log_system("API key updated.")
 
         def _start_session(self) -> None:
             set_approval_hook(self._approval_prompter)
@@ -484,6 +510,9 @@ if TEXTUAL_AVAILABLE:
             if cmd == "/tts":
                 self.action_toggle_tts()
                 return True
+            if cmd == "/key":
+                self._change_api_key()
+                return True
             if cmd.startswith("/"):
                 self._log_system(f"Unknown command {cmd}. Try /help /clear /memory.")
                 return True
@@ -524,7 +553,12 @@ if TEXTUAL_AVAILABLE:
                 elif evt.type == "reflection":
                     self._log_system(f"💡 {evt.content}")
                 elif evt.type == "error":
-                    self._log_error(evt.content)
+                    msg = evt.content or ""
+                    self._log_error(msg)
+                    if "401" in msg or "unauthorized" in msg.lower():
+                        self._log_system(
+                            "[yellow]Bad API key — type /key to enter a new one[/yellow]"
+                        )
                 elif evt.type == "cost":
                     self._log_system(f"💰 {evt.content}")
             if streaming and buffer:

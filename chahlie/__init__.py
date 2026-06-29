@@ -7,5 +7,5 @@ Created with love for the Boston dev community.
 NOW WITH MEMORY, SELF-IMPROVEMENT, AND SELF-VERIFICATION!
 """
 
-__version__ = "2.5.7"
-__codename__ = "Bottom of the Ninth"
+__version__ = "2.5.8"
+__codename__ = "Walk-Off Win"

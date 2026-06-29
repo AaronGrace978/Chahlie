@@ -14,17 +14,42 @@ def env_file_path() -> Path:
     return Path.home() / ".local" / "share" / "chahlie" / ".env"
 
 
-def _read_env_file(path: Path) -> dict[str, str]:
-    if not path.is_file():
-        return {}
-    out: dict[str, str] = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, val = line.partition("=")
-        out[key.strip()] = val.strip()
-    return out
+def sanitize_api_key(key: str) -> str:
+    """Strip whitespace and accidental quotes from pasted keys."""
+    key = (key or "").strip()
+    if (key.startswith('"') and key.endswith('"')) or (
+        key.startswith("'") and key.endswith("'")
+    ):
+        key = key[1:-1].strip()
+    return key
+
+
+def verify_api_key(api_key: str) -> tuple[bool, str]:
+    """Ping Ollama Cloud to confirm the key works. Returns (ok, error_message)."""
+    import requests
+
+    key = sanitize_api_key(api_key)
+    if not key or len(key) < 8:
+        return False, "That key looks too short."
+
+    try:
+        resp = requests.get(
+            "https://ollama.com/api/tags",
+            headers={"Authorization": f"Bearer {key}"},
+            timeout=20,
+        )
+    except requests.RequestException as exc:
+        return False, f"Can't reach Ollama Cloud: {exc}"
+
+    if resp.status_code == 401:
+        return False, (
+            "401 Unauthorized — key is wrong or expired.\n"
+            "Get a fresh key at ollama.com/settings/keys"
+        )
+    if resp.status_code >= 400:
+        return False, f"Ollama returned error {resp.status_code}. Try again in a minute."
+
+    return True, ""
 
 
 def needs_api_key_setup() -> bool:
@@ -32,7 +57,7 @@ def needs_api_key_setup() -> bool:
     backend = os.getenv("CHAHLIE_BACKEND", "ollama-cloud")
     if backend != "ollama-cloud":
         return False
-    key = (os.getenv("OLLAMA_API_KEY") or "").strip()
+    key = sanitize_api_key(os.getenv("OLLAMA_API_KEY") or "")
     if not key:
         return True
     placeholders = (
@@ -46,6 +71,7 @@ def needs_api_key_setup() -> bool:
 
 def save_api_key(api_key: str, env_path: Path | None = None) -> Path:
     """Write OLLAMA_API_KEY into the deck config file."""
+    api_key = sanitize_api_key(api_key)
     path = env_path or env_file_path()
     path.parent.mkdir(parents=True, exist_ok=True)
 
