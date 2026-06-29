@@ -2,6 +2,12 @@
 
 All notable changes to Chahlie will be documented in this file.
 
+## [2.5.12] "Walk-Off" - 2026-06-29
+
+### Fixed
+
+- **Deck crash on launch (again)** — `@on(Focus, "#user-input")` is not supported in Textual 0.50; use standard `on_focus` handler instead.
+
 ## [2.5.11] "Green Light" - 2026-06-29
 
 ### Fixed

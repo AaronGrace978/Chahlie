@@ -698,9 +698,9 @@ if TEXTUAL_AVAILABLE:
         def _btn_quit(self) -> None:
             self.exit()
 
-        @on(Focus, "#user-input")
-        def _input_focused(self, _event: Focus) -> None:
-            self._chat().scroll_end(animate=False)
+        def on_focus(self, event: Focus) -> None:
+            if getattr(event.control, "id", None) == "user-input":
+                self._chat().scroll_end(animate=False)
 
         def action_focus_input(self) -> None:
             if self._processing:
