@@ -1,6 +1,6 @@
 [package]
 name = "chahlie-tauri"
-version = "2.6.0"
+version = "2.6.3"
 description = "Chahlie — Boston coding agent (Tauri shell)"
 authors = ["you"]
 edition = "2021"
