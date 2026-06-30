@@ -274,7 +274,7 @@ if TEXTUAL_AVAILABLE:
         }}
 
         #hero {{
-            height: 3;
+            height: 2;
             background: {NAVY};
             border-bottom: solid {BRUINS_GOLD};
             padding: 0 1;
@@ -286,12 +286,85 @@ if TEXTUAL_AVAILABLE:
             color: {BRUINS_GOLD};
         }}
 
-        #toolbar {{
+        #command-bar {{
             dock: bottom;
+            height: auto;
+            background: {NAVY};
+            border-top: thick {BRUINS_GOLD};
+            padding: 0 1 1 1;
+        }}
+
+        #input-label {{
+            height: 1;
+            color: {BRUINS_GOLD};
+            text-style: bold;
+            background: {NAVY_MID};
+            padding: 0 1;
+            margin-top: 1;
+            border: solid {CELTICS_GREEN};
+        }}
+
+        #input-row {{
+            height: 5;
+            padding: 0;
+            background: {NAVY_MID};
+            border: solid {BRUINS_GOLD};
+        }}
+
+        #input-row:focus-within {{
+            background: #123456;
+            border: thick {BRUINS_GOLD};
+        }}
+
+        #user-input {{
+            width: 1fr;
+            border: none;
+            background: #0F2847;
+            color: #FFFFFF;
+            min-height: 3;
+            padding: 0 1;
+        }}
+
+        #user-input:focus {{
+            background: #1A3A5C;
+            color: #FFFFFF;
+        }}
+
+        #user-input.-disabled {{
+            opacity: 0.75;
+            background: #0A1A2E;
+            color: {TEXT_MUTED};
+        }}
+
+        #input-hint {{
+            width: auto;
+            color: {BRUINS_GOLD};
+            text-style: bold;
+            content-align: center middle;
+            padding: 0 1;
+            background: {NAVY_MID};
+        }}
+
+        #stream-live {{
+            height: auto;
+            max-height: 5;
+            background: {NAVY_MID};
+            border: solid {CELTICS_GREEN};
+            color: {CELTICS_GREEN_BRIGHT};
+            padding: 0 1;
+            margin: 0 0 1 0;
+        }}
+
+        #stream-live.hidden {{
+            display: none;
+        }}
+
+        #toolbar {{
             height: 3;
             background: {NAVY_MID};
             border-top: solid {CELTICS_GREEN};
             padding: 0 1;
+            margin-top: 1;
         }}
 
         #toolbar Button {{
@@ -313,47 +386,10 @@ if TEXTUAL_AVAILABLE:
 
         #chat-log {{
             border: solid {RED};
-            margin: 0 1;
+            margin: 0 1 1 1;
             padding: 0 1;
             scrollbar-background: {NAVY};
             scrollbar-color: {GREEN};
-        }}
-
-        #input-row {{
-            dock: bottom;
-            height: 3;
-            border-top: solid {CELTICS_GREEN};
-            padding: 0 1;
-            background: {NAVY_MID};
-        }}
-
-        #input-row:focus-within {{
-            background: {NAVY};
-        }}
-
-        #user-input {{
-            width: 1fr;
-            border: solid {BRUINS_GOLD};
-            background: {FENWAY_NIGHT};
-            color: {TEXT_PRIMARY};
-            min-height: 3;
-        }}
-
-        #user-input:focus {{
-            border: thick {BRUINS_GOLD};
-            background: {NAVY};
-        }}
-
-        #user-input.-disabled {{
-            opacity: 0.65;
-            border: solid {MUTED};
-        }}
-
-        #input-hint {{
-            width: auto;
-            color: {MUTED};
-            content-align: center middle;
-            padding: 0 1;
         }}
 
         .msg-user {{
@@ -398,7 +434,8 @@ if TEXTUAL_AVAILABLE:
             self._listening = False
             self._processing = False
             self._tts_on = VOICE_TTS_ENABLED
-            self._input_placeholder = "Type or press F4 / 🎤 Talk to speak…"
+            self._input_placeholder = "Type your message here…"
+            self._stream_buffer = ""
 
         def compose(self) -> ComposeResult:
             yield Header(show_clock=True)
@@ -408,19 +445,22 @@ if TEXTUAL_AVAILABLE:
                 id="hero-title",
             )
             yield RichLog(id="chat-log", highlight=True, markup=True, wrap=True)
-            with Horizontal(id="toolbar"):
-                yield Button("Help", id="btn-help", variant="primary")
-                yield Button("Clear", id="btn-clear")
-                yield Button("Memory", id="btn-memory")
-                yield Button("🎤 Talk", id="mic-btn")
-                yield Button("🔊 TTS", id="tts-btn")
-                yield Button("Quit", id="btn-quit", variant="warning")
-            with Horizontal(id="input-row"):
-                yield Input(
-                    placeholder=self._input_placeholder,
-                    id="user-input",
-                )
-                yield Label("F7 = focus", id="input-hint")
+            with Vertical(id="command-bar"):
+                yield Static("", id="stream-live", classes="hidden")
+                with Horizontal(id="toolbar"):
+                    yield Button("Help", id="btn-help", variant="primary")
+                    yield Button("Clear", id="btn-clear")
+                    yield Button("Memory", id="btn-memory")
+                    yield Button("🎤 Talk", id="mic-btn")
+                    yield Button("🔊 TTS", id="tts-btn")
+                    yield Button("Quit", id="btn-quit", variant="warning")
+                yield Label("▶ TYPE HERE — Enter to send · F7 to focus keyboard", id="input-label")
+                with Horizontal(id="input-row"):
+                    yield Input(
+                        placeholder=self._input_placeholder,
+                        id="user-input",
+                    )
+                    yield Label("F7", id="input-hint")
             yield Footer()
 
         def on_mount(self) -> None:
@@ -458,8 +498,8 @@ if TEXTUAL_AVAILABLE:
             self._refresh_status()
             self._log_system(get_greeting())
             self._log_system(
-                "Type below or tap 🎤 Talk · F1 Help · F2 Clear · F3 Memory · "
-                "F4 Talk · F5 TTS · F7 Type · Enter send"
+                "👇 Gold box at the bottom is where you type — tap it or press F7 · "
+                "F4 Talk · Enter send"
             )
             if voice_available():
                 self._log_system(f"Voice: {self.voice.status_line()}")
@@ -476,6 +516,7 @@ if TEXTUAL_AVAILABLE:
                     for w in self.agent.plugin_warnings:
                         self._log_system(f"[yellow]plugin: {w}[/yellow]")
             self._focus_input()
+            self.set_timer(0.5, self._focus_input, once=True)
 
         def _input(self) -> Input:
             return self.query_one("#user-input", Input)
@@ -592,6 +633,28 @@ if TEXTUAL_AVAILABLE:
                 return True
             return False
 
+        def _stream_live(self) -> Static:
+            return self.query_one("#stream-live", Static)
+
+        def _stream_start(self) -> None:
+            self._stream_buffer = ""
+            live = self._stream_live()
+            live.remove_class("hidden")
+            live.update(f"[bold {CELTICS_GREEN_BRIGHT}]Chahlie:[/] …")
+
+        def _stream_append(self, piece: str) -> None:
+            self._stream_buffer += piece
+            live = self._stream_live()
+            preview = self._stream_buffer.replace("\n", " ")
+            if len(preview) > 220:
+                preview = "…" + preview[-220:]
+            live.update(f"[bold {CELTICS_GREEN_BRIGHT}]Chahlie:[/] {preview}")
+
+        def _stream_finish(self) -> None:
+            live = self._stream_live()
+            live.add_class("hidden")
+            self._stream_buffer = ""
+
         def _dispatch_agent_event(self, evt) -> None:
             """Handle one agent event on the UI thread."""
             if evt.type == "text":
@@ -631,28 +694,32 @@ if TEXTUAL_AVAILABLE:
                 for evt in self.agent.process(msg):
                     if evt.type == "text":
                         if evt.data and evt.data.get("streaming"):
+                            if not streaming:
+                                streaming = True
+                                self.call_from_thread(self._stream_start).result()
                             buffer += evt.content
-                            streaming = True
+                            self.call_from_thread(self._stream_append, evt.content).result()
                             continue
                         if streaming and buffer:
-                            chunk = buffer
-                            buffer = ""
+                            self.call_from_thread(self._stream_finish).result()
                             streaming = False
-                            self.call_from_thread(self._log_agent, chunk)
+                            self.call_from_thread(self._log_agent, buffer).result()
                             if self._tts_on:
-                                self.voice.speak(chunk)
-                        self.call_from_thread(self._dispatch_agent_event, evt)
+                                self.voice.speak(buffer)
+                            buffer = ""
+                        self.call_from_thread(self._dispatch_agent_event, evt).result()
                     else:
                         if streaming and buffer:
-                            chunk = buffer
-                            buffer = ""
+                            self.call_from_thread(self._stream_finish).result()
                             streaming = False
-                            self.call_from_thread(self._log_agent, chunk)
+                            self.call_from_thread(self._log_agent, buffer).result()
                             if self._tts_on:
-                                self.voice.speak(chunk)
-                        self.call_from_thread(self._dispatch_agent_event, evt)
+                                self.voice.speak(buffer)
+                            buffer = ""
+                        self.call_from_thread(self._dispatch_agent_event, evt).result()
                 if streaming and buffer:
-                    self.call_from_thread(self._log_agent, buffer)
+                    self.call_from_thread(self._stream_finish).result()
+                    self.call_from_thread(self._log_agent, buffer).result()
                     if self._tts_on:
                         self.voice.speak(buffer)
             except Exception as exc:

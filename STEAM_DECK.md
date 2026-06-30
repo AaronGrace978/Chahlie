@@ -31,6 +31,20 @@ Get a free key: https://ollama.com/settings/keys
 
 Type `/key` anytime to update your key.
 
+### Where to type
+
+The **gold box at the bottom** says **▶ TYPE HERE**. That's your message box.
+
+- Tap the gold-bordered input area, or press **F7** to focus the keyboard
+- **Enter** sends your message
+- If you only see toolbar buttons, scroll down — the input sits below them in a gold-framed bar
+
+---
+
+## Website
+
+Baseball-themed landing page (GitHub Pages): **https://aarongrace978.github.io/Chahlie/**
+
 ---
 
 ## You clicked the wrong file if Kate opened
