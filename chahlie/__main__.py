@@ -585,13 +585,16 @@ def main(version, about, backend, model, no_memory, no_stream, no_approval, llm_
     if semantic_memory:
         os.environ["CHAHLIE_SEMANTIC_MEMORY"] = "true"
 
+    if deck:
+        os.environ["CHAHLIE_DECK_MODE"] = "true"
+        os.environ.setdefault("CHAHLIE_WORKDIR", os.path.expanduser("~"))
+
     # Reload config
     from importlib import reload
     from . import config
     reload(config)
 
     if deck:
-        os.environ["CHAHLIE_DECK_MODE"] = "true"
         # Deck UI has its own setup wizard — don't block on missing API key here.
         try:
             from .deck_ui import run_deck

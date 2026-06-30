@@ -44,7 +44,7 @@ from .config import (
     PERSISTENT_VECTOR_STORE,
     TOT_PLANNING, TOT_MIN_TASK_CHARS, TOT_CANDIDATES, TOT_MODEL,
     FALLBACK_MODELS,
-    DECK_MODE, DECK_MAX_RETRIES, DECK_SOCIAL_LOCAL_CHARS,
+    DECK_MODE, DECK_MAX_RETRIES, DECK_SOCIAL_LOCAL_CHARS, DECK_WORKDIR,
 )
 import time
 import threading
@@ -76,6 +76,10 @@ _CODING_KEYWORDS = {
     "function", "method", "api", "server", "database", "sql", "npm", "pip",
     "lint", "mypy", "ruff", "eslint", "error", "stacktrace", "traceback",
     "repo", "branch", "merge", "undo", "watch_file",
+    # System / file organization (Deck personal-assistant tasks)
+    "scan", "system", "organize", "sort", "clean", "tidy", "storage", "disk",
+    "download", "downloads", "desktop", "home", "deck", "files", "move",
+    "delete", "find", "search", "space", "free", "backup",
 }
 
 _HEART_TEXT = re.compile(r"(<3|❤|❤️|love ya|love you)", re.I)
@@ -254,6 +258,7 @@ _ACTION_TURN_RE = re.compile(
     r"git|npm|pip|poetry|cargo|make|build|deploy|clone|fetch|pull|push|"
     r"commit|checkout|diff|status|log|"
     r"mkdir|touch|cp|mv|rm|copy|move|rename|delete|remove|"
+    r"scan|organize|sort|clean|tidy|"
     r"go\s+to|goto|navigate|browse|search|google|find)\b",
     re.IGNORECASE,
 )
@@ -266,7 +271,7 @@ _EXPLAIN_TURN_RE = re.compile(
     r"help\s+me\s+understand)\b",
     re.IGNORECASE,
 )
-from .personality import SYSTEM_PROMPT, get_working, get_success
+from .personality import SYSTEM_PROMPT, DECK_SYSTEM_ADDENDUM, get_working, get_success
 from .tools import TOOL_DEFINITIONS, execute_tool, register_plugin_dispatch
 from .memory import ChahlieMemory, ReflectionEngine, PatternLearner
 from .memory.semantic import SemanticMemory, get_semantic_store
@@ -383,7 +388,8 @@ class ChahlieAgent:
         self.plugin_warnings = warnings
 
         # --- Project primer ---
-        self.primer = prime_project(".")
+        primer_root = DECK_WORKDIR if DECK_MODE else "."
+        self.primer = prime_project(primer_root)
 
         # --- Cost meter ---
         rates = COST_RATES.get(self.backend, {"input": 0.0, "output": 0.0})
@@ -866,8 +872,6 @@ class ChahlieAgent:
         if self._is_junk_input(text):
             return True
         if self._is_social_turn(text):
-            if DECK_MODE:
-                return True
             lowered = text.lower()
             return any((
                 _HEART_TEXT.search(text),
@@ -937,8 +941,11 @@ class ChahlieAgent:
         if lightweight:
             return self._social_system_prompt()
         if action_mode:
+            base = SYSTEM_PROMPT
+            if DECK_MODE:
+                base = base + "\n\n" + DECK_SYSTEM_ADDENDUM
             return (
-                SYSTEM_PROMPT
+                base
                 + "\n\nDIRECT-ACTION MODE:\n"
                 "- The user asked for a specific, concrete action. Just do it.\n"
                 "- Call the appropriate tool immediately. Don't narrate a plan.\n"
@@ -947,6 +954,13 @@ class ChahlieAgent:
                 "Do NOT restate or repeat previous sentences from this turn.\n"
             )
         parts = [SYSTEM_PROMPT]
+        if DECK_MODE:
+            parts.append(DECK_SYSTEM_ADDENDUM)
+            parts.append(
+                f"DECK HOME DIRECTORY: {DECK_WORKDIR}\n"
+                f"- list_directory / search_files here by default unless the user names another path.\n"
+                f"- run_command inherits cwd={DECK_WORKDIR}."
+            )
 
         # Same multi-step dedup hint for full prompts. Models (esp. qwen3.5)
         # love to restate their prior message before each tool call - this

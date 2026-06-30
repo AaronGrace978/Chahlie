@@ -204,6 +204,10 @@ THEME = {
 # Deck UI: python -m chahlie --deck
 DECK_MODE = os.getenv("CHAHLIE_DECK_MODE", "false").lower() in ("1", "true", "yes")
 
+# Default working directory for Deck (home folder, not the Chahlie install dir).
+_workdir = os.getenv("CHAHLIE_WORKDIR", "").strip()
+DECK_WORKDIR = os.path.expanduser(_workdir or "~") if DECK_MODE else ""
+
 # Deck perf: fewer retries on flaky Wi‑Fi so hiccups fail fast to fallback/local reply.
 DECK_MAX_RETRIES = int(os.getenv("CHAHLIE_DECK_MAX_RETRIES", "2"))
 

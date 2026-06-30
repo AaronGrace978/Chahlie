@@ -122,6 +122,8 @@ bash scripts/chahlie-deck.sh
 | Slow responses | Use `qwen3.5:cloud` or local `qwen3:8b`; disable semantic memory |
 | Approval stuck | Use touch buttons on the modal; A=approve B=deny |
 | Can't type / keyboard dead | Tap the input bar or press **F7**. Toolbar buttons steal focus — we refocus after taps. In Gaming Mode use Desktop Mode keyboard or **F4 Talk** |
+| Chahlie won't scan/organize my files | Make sure `CHAHLIE_WORKDIR=/home/deck` is in `~/.local/share/chahlie/.env`. Re-run `START-CHAHLIE.sh` from a fresh release — older builds started in the Chahlie install folder by mistake |
+| Says "I'm only a coding assistant" | Update to v2.6.8+ — Deck mode now includes personal-assistant instructions. Try: *"list my Downloads folder"* or *"scan my home directory"* |
 | Ollama Cloud fails | Type `/key` to fix API key; try `CHAHLIE_FALLBACK_MODELS` in `.env`; see https://ollama.com/status |
 
 Made with love by **Cursor Boston** ⚾

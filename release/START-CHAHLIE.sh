@@ -126,7 +126,11 @@ if [[ -f "$ENV_FILE" ]]; then
     set +a
 fi
 
-cd "$ROOT"
+# Work from the user's HOME by default — not the Chahlie install folder.
+# This is critical: list_directory(".") and run_command need to see the Deck, not our own package files.
+export CHAHLIE_DECK_MODE=true
+export CHAHLIE_WORKDIR="${CHAHLIE_WORKDIR:-$HOME}"
+cd "$CHAHLIE_WORKDIR"
 if "$PYTHON" -m chahlie --deck "$@"; then
     exit 0
 else

@@ -7,5 +7,5 @@ Created with love for the Boston dev community.
 NOW WITH MEMORY, SELF-IMPROVEMENT, AND SELF-VERIFICATION!
 """
 
-__version__ = "2.6.7"
-__codename__ = "Green Monster"
+__version__ = "2.6.8"
+__codename__ = "Fenway Helper"
