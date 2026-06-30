@@ -123,7 +123,39 @@ bash scripts/chahlie-deck.sh
 | Approval stuck | Use touch buttons on the modal; A=approve B=deny |
 | Can't type / keyboard dead | Tap the input bar or press **F7**. Toolbar buttons steal focus — we refocus after taps. In Gaming Mode use Desktop Mode keyboard or **F4 Talk** |
 | Chahlie won't scan/organize my files | Make sure `CHAHLIE_WORKDIR=/home/deck` is in `~/.local/share/chahlie/.env`. Re-run `START-CHAHLIE.sh` from a fresh release — older builds started in the Chahlie install folder by mistake |
-| Says "I'm only a coding assistant" | Update to v2.6.8+ — Deck mode now includes personal-assistant instructions. Try: *"list my Downloads folder"* or *"scan my home directory"* |
+| Says "I'm only a coding assistant" | Update to v2.7.0+ — Deck mode includes personal-assistant + native Deck tools. Try: *"launch Steam"*, *"check battery"*, *"set volume to 40"* |
 | Ollama Cloud fails | Type `/key` to fix API key; try `CHAHLIE_FALLBACK_MODELS` in `.env`; see https://ollama.com/status |
+| Want to use a friend's GPU | Run `python -m chahlie.llama_proxy` on their machine; set `CHAHLIE_BACKEND=openai-compatible` and `OPENAI_COMPATIBLE_URL` on your Deck |
+
+## Deck native commands (v2.7+)
+
+Tell Chahlie anything you'd do on the Deck — he'll use his tools:
+
+| You say | Chahlie does |
+|---------|----------------|
+| "Launch Hades" / "open Firefox" | `deck_launch` |
+| "How's my battery?" / "disk space?" | `deck_system_info` |
+| "Set volume to 60" / "mute" | `deck_set_volume` |
+| "Brightness 80%" | `deck_set_brightness` |
+| "Open Big Picture" | `deck_steam` |
+
+He still handles files, shell commands, git, and coding — the whole machine is in play.
+
+## Llama proxy (share with friends)
+
+On a PC with Ollama running:
+
+```bash
+ollama serve
+python -m chahlie.llama_proxy --port 11435
+```
+
+On your Deck (`~/.local/share/chahlie/.env`):
+
+```bash
+CHAHLIE_BACKEND=openai-compatible
+OPENAI_COMPATIBLE_URL=http://192.168.x.x:11435/v1
+OPENAI_COMPATIBLE_MODEL=qwen3:8b
+```
 
 Made with love by **Cursor Boston** ⚾

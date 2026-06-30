@@ -1071,7 +1071,24 @@ def execute_tool(name: str, arguments: dict) -> ToolResult:
         except Exception as e:
             return ToolResult(success=False, output="", error=f"plugin '{name}' raised: {e}")
 
+    # Steam Deck native tools (only when deck mode is active)
+    from .config import DECK_MODE
+    if DECK_MODE:
+        from .deck_tools import DECK_TOOL_DISPATCH
+        if name in DECK_TOOL_DISPATCH:
+            return DECK_TOOL_DISPATCH[name](arguments)
+
     return ToolResult(
         success=False, output="",
         error=f"Unknown tool: {name}",
     )
+
+
+def get_tool_definitions() -> list[dict]:
+    """Return core tool schemas, plus Deck-native tools when in Deck mode."""
+    from .config import DECK_MODE
+    defs = list(TOOL_DEFINITIONS)
+    if DECK_MODE:
+        from .deck_tools import DECK_TOOL_DEFINITIONS
+        defs = defs + DECK_TOOL_DEFINITIONS
+    return defs

@@ -18,6 +18,7 @@ from .config import (
     BACKEND, ANTHROPIC_API_KEY,
     OLLAMA_CLOUD_HOST, OLLAMA_CLOUD_API_KEY, OLLAMA_LOCAL_HOST,
     OLLAMA_CLOUD_MODEL, OLLAMA_LOCAL_MODEL,
+    OPENAI_COMPATIBLE_URL, OPENAI_COMPATIBLE_API_KEY, OPENAI_COMPATIBLE_MODEL,
     SMALL_MODEL, SOCIAL_FAST_PATH, SOCIAL_MAX_REPLY_LINES,
     SOCIAL_MAX_REPLY_CHARS,
 )
@@ -173,7 +174,21 @@ def check_backend():
                 "  OLLAMA_API_KEY=your-key-here"
             )
             return False
-    else:  # ollama-local
+    elif BACKEND == "openai-compatible":
+        from .deck_setup import verify_openai_compatible
+        ok, err = verify_openai_compatible(OPENAI_COMPATIBLE_URL, OPENAI_COMPATIBLE_API_KEY)
+        if not ok:
+            ui.print_error(
+                f"Can't reach LLM proxy at {OPENAI_COMPATIBLE_URL}\n\n"
+                f"{err}\n\n"
+                "Start a local proxy:\n"
+                "  python -m chahlie.llama_proxy\n\n"
+                "Or point at a friend's proxy:\n"
+                "  CHAHLIE_BACKEND=openai-compatible\n"
+                "  OPENAI_COMPATIBLE_URL=http://their-host:11435/v1"
+            )
+            return False
+    elif BACKEND == "ollama-local":
         import requests
         try:
             response = requests.get(f"{OLLAMA_LOCAL_HOST}/api/tags", timeout=5)
@@ -207,6 +222,8 @@ def run_interactive():
         ui.console.print(f"[dim]☁️ Using Ollama Cloud: {OLLAMA_CLOUD_MODEL}[/dim]\n")
     elif BACKEND == "ollama-local":
         ui.console.print(f"[dim]🦙 Using Local Ollama: {OLLAMA_LOCAL_MODEL}[/dim]\n")
+    elif BACKEND == "openai-compatible":
+        ui.console.print(f"[dim]🔌 Using LLM proxy: {OPENAI_COMPATIBLE_MODEL} @ {OPENAI_COMPATIBLE_URL}[/dim]\n")
     else:
         ui.console.print(f"[dim]🤖 Using Anthropic Claude[/dim]\n")
     
@@ -537,7 +554,7 @@ def run_interactive():
 @click.command()
 @click.option("--version", "-v", is_flag=True, help="Show version and exit")
 @click.option("--about", "-a", is_flag=True, help="Show about information")
-@click.option("--backend", "-b", type=click.Choice(["ollama-cloud", "ollama-local", "anthropic"]), help="Backend to use")
+@click.option("--backend", "-b", type=click.Choice(["ollama-cloud", "ollama-local", "openai-compatible", "anthropic"]), help="Backend to use")
 @click.option("--model", "-m", help="Model to use (for Ollama)")
 @click.option("--no-memory", is_flag=True, help="Disable memory system")
 @click.option("--no-stream", is_flag=True, help="Disable token streaming")

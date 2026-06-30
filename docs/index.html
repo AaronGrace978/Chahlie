@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Chahlie — The Boston Coding Agent</title>
-  <meta name="description" content="Chahlie is your wicked smart coding buddy — terminal agent with Boston soul. Steam Deck edition, Ollama Cloud, Cursor Boston." />
+  <meta name="description" content="Chahlie is your wicked smart coding buddy — terminal agent with Boston soul. Steam Deck personal assistant, Ollama Cloud, Llama proxy support." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
@@ -79,7 +79,7 @@
     .tagline {
       font-size: 1.2rem;
       color: var(--muted);
-      max-width: 36rem;
+      max-width: 40rem;
       margin: 1rem auto 0;
     }
 
@@ -201,46 +201,66 @@
 </head>
 <body>
   <header class="skyline">
-    <span class="badge">CURSOR BOSTON ⚾ OFFICIAL</span>
+    <span class="badge">CURSOR BOSTON ⚾ v2.7.0 GREEN MONSTER</span>
     <h1>CHAHLIE</h1>
-    <p class="tagline">Your wicked smart coding buddy — big hat energy, Fenway green, terminal-native.</p>
+    <p class="tagline">Your wicked smart coding buddy — and now a full Steam Deck personal assistant. Big hat energy, Fenway green, terminal-native.</p>
     <div class="mascot-row" aria-hidden="true">
       <span title="Chahlie">🧢</span>
       <span title="Baseball">⚾</span>
       <span title="Green Monster">🟢</span>
     </div>
-    <img class="banner" src="assets/chahlie-banner.png" alt="Chahlie — Your Wicked Smart Coding Assistant" width="720" height="auto" />
+    <img class="banner" src="assets/chahlie-banner.svg" alt="Chahlie — Your Wicked Smart Coding Assistant" width="720" height="200" />
   </header>
 
   <main>
     <section id="deck">
       <h2>🎮 Steam Deck (recommended)</h2>
-      <p>Tauri white-screen on Deck? Skip it. Use the <strong>terminal Deck build</strong> — it works, supports Ollama Cloud, and now has a big gold <strong>TYPE HERE</strong> box at the bottom.</p>
+      <p>Chahlie isn't just a coding bot on Deck anymore — tell him to <strong>launch games</strong>, <strong>check battery</strong>, <strong>set volume</strong>, <strong>organize Downloads</strong>, or <strong>run any safe shell command</strong>. He'll use his tools and get it done.</p>
       <div class="btn-row">
         <a class="btn btn-primary" href="https://github.com/AaronGrace978/Chahlie/releases/latest">Download latest release</a>
         <a class="btn btn-gold" href="https://ollama.com/settings/keys">Get free Ollama API key</a>
       </div>
       <pre>cd ~/Downloads
-curl -L -O https://github.com/AaronGrace978/Chahlie/releases/download/v2.5.12/chahlie-deck-2.5.12-linux-x86_64.tar.gz
-tar -xzf chahlie-deck-2.5.12-linux-x86_64.tar.gz
-cd chahlie-deck-2.5.12-linux
+curl -L -O https://github.com/AaronGrace978/Chahlie/releases/download/v2.7.0/chahlie-deck-2.7.0-linux-x86_64.tar.gz
+tar -xzf chahlie-deck-2.7.0-linux-x86_64.tar.gz
+cd chahlie-deck-2.7.0-linux
 chmod +x START-CHAHLIE.sh
 ./START-CHAHLIE.sh</pre>
       <div class="note">
-        <strong>Tip:</strong> Double-click <code>Start Chahlie.desktop</code> — not the <code>.sh</code> file (Kate opens that). Gold box at the bottom = where you type. Press <strong>F7</strong> if the keyboard won't focus.
+        <strong>Tip:</strong> Double-click <code>Start Chahlie.desktop</code> — not the <code>.sh</code> file (Kate opens that). Gold box at the bottom = where you type. Press <strong>F7</strong> if the keyboard won't focus. Try: <em>"launch Steam"</em>, <em>"how's my battery"</em>, <em>"set volume to 50"</em>.
       </div>
     </section>
 
     <section id="features">
       <h2>⚾ What you get</h2>
       <ul>
-        <li>Full agent — read/write files, run commands, git tools</li>
+        <li><strong>Deck native tools</strong> — launch apps/games, battery &amp; disk info, volume, brightness, Steam commands</li>
+        <li>Full agent — read/write files, run commands, git tools, organize your home folder</li>
         <li>Boston personality (obviously)</li>
         <li>Ollama Cloud — paste key once, no local GPU required</li>
         <li>Voice on Deck — F4 talk, F5 TTS</li>
         <li>Memory + self-improvement across sessions</li>
         <li>Gamepad-friendly approval modals</li>
       </ul>
+    </section>
+
+    <section id="proxy">
+      <h2>🔌 Llama proxy (share Chahlie with friends)</h2>
+      <p>Run a local OpenAI-compatible proxy so others can point Chahlie at <em>your</em> Ollama instance — great for LAN parties or a home server with a GPU.</p>
+      <pre># On the machine running Ollama:
+ollama serve
+ollama pull qwen3:8b
+
+# Start the Chahlie proxy (forwards to Ollama):
+python -m chahlie.llama_proxy --port 11435
+
+# On a friend's Deck or PC:
+CHAHLIE_BACKEND=openai-compatible
+OPENAI_COMPATIBLE_URL=http://YOUR-IP:11435/v1
+OPENAI_COMPATIBLE_MODEL=qwen3:8b</pre>
+      <div class="note">
+        Optional: set <code>LLAMA_PROXY_API_KEY</code> on the server and <code>OPENAI_COMPATIBLE_API_KEY</code> on clients so random people can't burn your GPU cycles.
+      </div>
     </section>
 
     <section id="dev">
@@ -260,7 +280,7 @@ python -m chahlie --deck</pre>
   <footer>
     <p>Made with love by <a href="https://cursorboston.com">Cursor Boston</a> · MIT License</p>
     <p><a href="https://github.com/AaronGrace978/Chahlie">github.com/AaronGrace978/Chahlie</a></p>
-    <p><small>Site deploys via GitHub Actions — enable Pages under repo Settings if you see a 404.</small></p>
+    <p><small>Site deploys via GitHub Actions to the <code>gh-pages</code> branch.</small></p>
   </footer>
 </body>
 </html>

@@ -21,7 +21,7 @@ import uvicorn
 
 from . import __codename__, __version__
 from .agent import ChahlieAgent
-from .config import BACKEND, OLLAMA_CLOUD_MODEL, OLLAMA_LOCAL_MODEL
+from .config import BACKEND, OLLAMA_CLOUD_MODEL, OLLAMA_LOCAL_MODEL, OPENAI_COMPATIBLE_MODEL
 from .deck_setup import (
     needs_api_key_setup,
     reload_config,
@@ -121,6 +121,8 @@ def status():
     agent = _get_agent()
     cost = agent.get_cost_summary()
     model = OLLAMA_CLOUD_MODEL if BACKEND == "ollama-cloud" else OLLAMA_LOCAL_MODEL
+    if BACKEND == "openai-compatible":
+        model = OPENAI_COMPATIBLE_MODEL
     return {
         "version": __version__,
         "codename": __codename__,

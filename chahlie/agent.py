@@ -29,6 +29,7 @@ from .config import (
     ANTHROPIC_API_KEY, ANTHROPIC_MODEL,
     OLLAMA_CLOUD_HOST, OLLAMA_CLOUD_API_KEY, OLLAMA_LOCAL_HOST,
     OLLAMA_CLOUD_MODEL, OLLAMA_LOCAL_MODEL,
+    OPENAI_COMPATIBLE_URL, OPENAI_COMPATIBLE_API_KEY, OPENAI_COMPATIBLE_MODEL,
     MAX_TOKENS,
     STREAMING,
     COMPACT_THRESHOLD_CHARS, COMPACT_PRESERVE_RECENT,
@@ -80,6 +81,9 @@ _CODING_KEYWORDS = {
     "scan", "system", "organize", "sort", "clean", "tidy", "storage", "disk",
     "download", "downloads", "desktop", "home", "deck", "files", "move",
     "delete", "find", "search", "space", "free", "backup",
+    # Steam Deck native
+    "steam", "game", "games", "launch", "volume", "brightness", "battery",
+    "mute", "speaker", "big picture", "flatpak", "gaming mode",
 }
 
 _HEART_TEXT = re.compile(r"(<3|❤|❤️|love ya|love you)", re.I)
@@ -272,7 +276,7 @@ _EXPLAIN_TURN_RE = re.compile(
     re.IGNORECASE,
 )
 from .personality import SYSTEM_PROMPT, DECK_SYSTEM_ADDENDUM, get_working, get_success
-from .tools import TOOL_DEFINITIONS, execute_tool, register_plugin_dispatch
+from .tools import get_tool_definitions, execute_tool, register_plugin_dispatch
 from .memory import ChahlieMemory, ReflectionEngine, PatternLearner
 from .memory.semantic import SemanticMemory, get_semantic_store
 from .context_manager import CostMeter, compact_history, estimate_messages_chars
@@ -365,7 +369,7 @@ class ChahlieAgent:
         # and CHAHLIE_PERSISTENT_VECTORS=true, else falls back to the in-memory
         # SemanticMemory. Seeding runs in a daemon thread either way.
         self.semantic: Optional[SemanticMemory] = None
-        if SEMANTIC_MEMORY and self.enable_memory and hasattr(self, "client") and self.backend != "anthropic":
+        if SEMANTIC_MEMORY and self.enable_memory and hasattr(self, "client") and self.backend not in ("anthropic", "openai-compatible"):
             try:
                 project_root = self.memory.project_path if self.memory else None
                 self.semantic = get_semantic_store(
@@ -414,6 +418,11 @@ class ChahlieAgent:
             from anthropic import Anthropic
             self.client = Anthropic(api_key=ANTHROPIC_API_KEY)
             self.model = ANTHROPIC_MODEL
+        elif self.backend == "openai-compatible":
+            self.client = None  # uses requests directly
+            self.model = OPENAI_COMPATIBLE_MODEL
+            self._openai_url = OPENAI_COMPATIBLE_URL
+            self._openai_key = OPENAI_COMPATIBLE_API_KEY
         elif self.backend == "ollama-cloud":
             from ollama import Client
             from . import config as cfg
@@ -731,8 +740,21 @@ class ChahlieAgent:
         ))
 
     def _format_ollama_error(self, err: Exception | str) -> str:
-        """User-facing Ollama error with Deck-friendly hints."""
+        """User-facing LLM error with Deck-friendly hints."""
         text = str(err).lower()
+        if self.backend == "openai-compatible":
+            if any(token in text for token in ("401", "403", "unauthorized")):
+                return (
+                    "LLM proxy auth failed, kehd.\n\n"
+                    "Check OPENAI_COMPATIBLE_API_KEY matches the proxy's LLAMA_PROXY_API_KEY.\n"
+                    "Or run your own: python -m chahlie.llama_proxy"
+                )
+            return (
+                f"LLM proxy error: {err}\n\n"
+                "Make sure the proxy is running:\n"
+                "  python -m chahlie.llama_proxy --port 11435\n"
+                "Set OPENAI_COMPATIBLE_URL=http://127.0.0.1:11435/v1 in .env"
+            )
         if any(token in text for token in (
             "401", "403", "unauthorized", "forbidden",
             "invalid api key", "authentication", "not authenticated",
@@ -1034,36 +1056,56 @@ class ChahlieAgent:
             summarize_fn=summarize,
         )
 
-    def _summarize_turns(self, turns: list[dict]) -> str:
-        """Ask the model to compress older conversation history to a short summary."""
+    def _simple_chat(self, system: str, user: str, max_tokens: int = 600) -> str:
+        """One-shot chat for compaction/reflection helpers."""
         try:
             if self.backend == "anthropic":
                 resp = self.client.messages.create(
-                    model=self.model,
-                    max_tokens=600,
-                    system=(
-                        "You compress a conversation history into 4-6 terse bullet "
-                        "points preserving decisions, file changes, and open TODOs. "
-                        "Do NOT add commentary; just the bullets."
-                    ),
-                    messages=[{"role": "user", "content": json.dumps(turns)[:12000]}],
+                    model=self.model, max_tokens=max_tokens,
+                    system=system,
+                    messages=[{"role": "user", "content": user}],
                 )
                 for block in resp.content:
                     if getattr(block, "type", "") == "text":
                         return block.text
                 return ""
+            if self.backend == "openai-compatible":
+                import requests
+                resp = requests.post(
+                    self._openai_chat_url(),
+                    headers=self._openai_headers(),
+                    json={
+                        "model": self.model,
+                        "max_tokens": max_tokens,
+                        "messages": [
+                            {"role": "system", "content": system},
+                            {"role": "user", "content": user},
+                        ],
+                    },
+                    timeout=OLLAMA_REQUEST_TIMEOUT,
+                )
+                resp.raise_for_status()
+                choice = (resp.json().get("choices") or [{}])[0]
+                return (choice.get("message") or {}).get("content") or ""
             resp = self.client.chat(
-                model=self.model,
+                model=self.model, stream=False,
                 messages=[
-                    {"role": "system",
-                     "content": "Compress this conversation to 4-6 terse bullet points (decisions, file changes, open TODOs). No commentary."},
-                    {"role": "user", "content": json.dumps(turns)[:12000]},
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
                 ],
-                stream=False,
             )
             return getattr(resp.message, "content", "") or ""
         except Exception:
             return ""
+
+    def _summarize_turns(self, turns: list[dict]) -> str:
+        """Ask the model to compress older conversation history to a short summary."""
+        return self._simple_chat(
+            "Compress this conversation to 4-6 terse bullet points "
+            "(decisions, file changes, open TODOs). No commentary.",
+            json.dumps(turns)[:12000],
+            max_tokens=600,
+        )
 
     # -----------------------------------------------------------------
     # LLM-based reflection (opt-in)
@@ -1072,34 +1114,17 @@ class ChahlieAgent:
     def _llm_reflect_on_failure(self, tool_name: str, args: dict, error: str) -> str:
         if not LLM_REFLECTION:
             return ""
-        try:
-            prompt = (
-                f"Tool '{tool_name}' failed with arguments {json.dumps(args)[:400]}.\n"
-                f"Error: {error[:400]}\n"
-                "In ONE sentence, what likely went wrong and what should be tried next? "
-                "Be terse and actionable."
-            )
-            if self.backend == "anthropic":
-                resp = self.client.messages.create(
-                    model=self.model, max_tokens=120,
-                    system="You are a debugging partner. One-sentence answers only.",
-                    messages=[{"role": "user", "content": prompt}],
-                )
-                for block in resp.content:
-                    if getattr(block, "type", "") == "text":
-                        return block.text.strip()
-                return ""
-            resp = self.client.chat(
-                model=self.model, stream=False,
-                messages=[
-                    {"role": "system",
-                     "content": "You are a debugging partner. One-sentence answers only."},
-                    {"role": "user", "content": prompt},
-                ],
-            )
-            return (getattr(resp.message, "content", "") or "").strip()
-        except Exception:
-            return ""
+        prompt = (
+            f"Tool '{tool_name}' failed with arguments {json.dumps(args)[:400]}.\n"
+            f"Error: {error[:400]}\n"
+            "In ONE sentence, what likely went wrong and what should be tried next? "
+            "Be terse and actionable."
+        )
+        return self._simple_chat(
+            "You are a debugging partner. One-sentence answers only.",
+            prompt,
+            max_tokens=120,
+        ).strip()
 
     # -----------------------------------------------------------------
     # backend calls
@@ -1107,7 +1132,7 @@ class ChahlieAgent:
 
     def _ollama_tools(self) -> list[dict]:
         tools = []
-        for tool in TOOL_DEFINITIONS + self.plugin_definitions:
+        for tool in get_tool_definitions() + self.plugin_definitions:
             tools.append({
                 "type": "function",
                 "function": {
@@ -1128,6 +1153,12 @@ class ChahlieAgent:
         max_tokens: Optional[int] = None,
     ) -> Generator[dict, None, None]:
         """Yields incremental chunks when streaming, or a single chunk otherwise."""
+        if self.backend == "openai-compatible":
+            yield from self._call_openai_compatible(
+                messages, stream, model=model, tools=tools, max_tokens=max_tokens,
+            )
+            return
+
         tools = self._ollama_tools() if tools is None else tools
         use_model = model or self.model
         chat_kwargs: dict = {
@@ -1176,6 +1207,124 @@ class ChahlieAgent:
                 yield {"role": "assistant", "content": delta_text, "stream_delta": True}
             if getattr(chunk, "done", False):
                 break
+        yield {
+            "role": "assistant",
+            "content": accumulated,
+            "tool_calls": final_tool_calls,
+            "final": True,
+        }
+
+    def _openai_headers(self) -> dict[str, str]:
+        headers = {"Content-Type": "application/json"}
+        if self._openai_key:
+            headers["Authorization"] = f"Bearer {self._openai_key}"
+        return headers
+
+    def _openai_chat_url(self) -> str:
+        base = self._openai_url.rstrip("/")
+        if base.endswith("/v1"):
+            return f"{base}/chat/completions"
+        return f"{base}/v1/chat/completions"
+
+    def _call_openai_compatible(
+        self,
+        messages: list[dict],
+        stream: bool,
+        *,
+        model: Optional[str] = None,
+        tools: Optional[list[dict]] = None,
+        max_tokens: Optional[int] = None,
+    ) -> Generator[dict, None, None]:
+        """OpenAI-compatible chat completions (llama.cpp, LiteLLM, chahlie.llama_proxy)."""
+        import requests
+
+        tools = self._ollama_tools() if tools is None else tools
+        use_model = model or self.model
+
+        # Convert Ollama-style tool defs to OpenAI format (same shape, different wrapper)
+        openai_tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": t["function"]["name"],
+                    "description": t["function"]["description"],
+                    "parameters": t["function"]["parameters"],
+                },
+            }
+            for t in tools
+        ] if tools else None
+
+        body: dict = {
+            "model": use_model,
+            "messages": messages,
+            "stream": stream,
+        }
+        if openai_tools:
+            body["tools"] = openai_tools
+        if max_tokens is not None:
+            body["max_tokens"] = max_tokens
+
+        try:
+            resp = requests.post(
+                self._openai_chat_url(),
+                headers=self._openai_headers(),
+                json=body,
+                stream=stream,
+                timeout=OLLAMA_REQUEST_TIMEOUT,
+            )
+            resp.raise_for_status()
+        except Exception as exc:
+            yield {"role": "assistant", "content": "", "error": str(exc), "final": True}
+            return
+
+        if not stream:
+            data = resp.json()
+            choice = (data.get("choices") or [{}])[0]
+            msg = choice.get("message") or {}
+            tool_calls = []
+            for tc in msg.get("tool_calls") or []:
+                fn = tc.get("function") or {}
+                tool_calls.append({
+                    "function": {
+                        "name": fn.get("name", ""),
+                        "arguments": fn.get("arguments", "{}"),
+                    },
+                })
+            yield {
+                "role": "assistant",
+                "content": msg.get("content") or "",
+                "tool_calls": tool_calls,
+            }
+            return
+
+        accumulated = ""
+        final_tool_calls: list[dict] = []
+        for line in resp.iter_lines(decode_unicode=True):
+            if not line or not line.startswith("data:"):
+                continue
+            payload = line[5:].strip()
+            if payload == "[DONE]":
+                break
+            try:
+                chunk = json.loads(payload)
+            except json.JSONDecodeError:
+                continue
+            choice = (chunk.get("choices") or [{}])[0]
+            delta = choice.get("delta") or {}
+            piece = delta.get("content") or ""
+            if piece:
+                accumulated += piece
+                yield {"role": "assistant", "content": piece, "stream_delta": True}
+            for tc in delta.get("tool_calls") or []:
+                idx = tc.get("index", 0)
+                while len(final_tool_calls) <= idx:
+                    final_tool_calls.append({"function": {"name": "", "arguments": ""}})
+                fn = tc.get("function") or {}
+                if fn.get("name"):
+                    final_tool_calls[idx]["function"]["name"] = fn["name"]
+                if fn.get("arguments"):
+                    final_tool_calls[idx]["function"]["arguments"] += fn["arguments"]
+
         yield {
             "role": "assistant",
             "content": accumulated,
@@ -1638,7 +1787,7 @@ class ChahlieAgent:
                 system=cached_system,
             )
             if not social_mode:
-                kwargs["tools"] = TOOL_DEFINITIONS + self.plugin_definitions
+                kwargs["tools"] = get_tool_definitions() + self.plugin_definitions
             kwargs["messages"] = self._history_for_turn(social_mode=social_mode)
 
             response = None

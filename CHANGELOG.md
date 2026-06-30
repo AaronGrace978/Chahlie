@@ -2,6 +2,17 @@
 
 All notable changes to Chahlie will be documented in this file.
 
+## [2.7.0] "Green Monster" - 2026-06-30
+
+### Added
+- **Steam Deck native tools** — `deck_launch`, `deck_system_info`, `deck_set_volume`, `deck_set_brightness`, `deck_steam`
+- **`openai-compatible` backend** — point Chahlie at any OpenAI-compatible LLM endpoint
+- **`python -m chahlie.llama_proxy`** — share your Ollama instance with friends over LAN
+
+### Changed
+- Expanded Deck personal-assistant system prompt for full-machine utility
+- GitHub Pages updated with Deck native features, proxy setup, v2.7.0 assets
+
 ## [2.6.6] "Homecoming" - 2026-06-29
 
 ### Fixed

@@ -24,6 +24,27 @@ def sanitize_api_key(key: str) -> str:
     return key
 
 
+def verify_openai_compatible(url: str, api_key: str = "") -> tuple[bool, str]:
+    """Ping an OpenAI-compatible endpoint (/v1/models)."""
+    import requests
+
+    base = url.rstrip("/")
+    models_url = f"{base}/models" if base.endswith("/v1") else f"{base}/v1/models"
+    headers = {}
+    key = sanitize_api_key(api_key)
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
+    try:
+        resp = requests.get(models_url, headers=headers, timeout=15)
+    except requests.RequestException as exc:
+        return False, f"Can't reach proxy: {exc}"
+    if resp.status_code == 401:
+        return False, "401 Unauthorized — check OPENAI_COMPATIBLE_API_KEY"
+    if resp.status_code >= 400:
+        return False, f"Proxy returned {resp.status_code}"
+    return True, ""
+
+
 def verify_api_key(api_key: str) -> tuple[bool, str]:
     """Ping Ollama Cloud to confirm the key works. Returns (ok, error_message)."""
     import requests
@@ -55,7 +76,7 @@ def verify_api_key(api_key: str) -> tuple[bool, str]:
 def needs_api_key_setup() -> bool:
     """True when cloud backend is selected but no real API key is set."""
     backend = os.getenv("CHAHLIE_BACKEND", "ollama-cloud")
-    if backend != "ollama-cloud":
+    if backend in ("ollama-local", "openai-compatible", "anthropic"):
         return False
     key = sanitize_api_key(os.getenv("OLLAMA_API_KEY") or "")
     if not key:

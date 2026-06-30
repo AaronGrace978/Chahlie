@@ -32,7 +32,7 @@ def _load_env_files() -> None:
 _load_env_files()
 
 # Backend Configuration
-# Options: "ollama-cloud" (default), "ollama-local", or "anthropic"
+# Options: "ollama-cloud" (default), "ollama-local", "openai-compatible", or "anthropic"
 BACKEND = os.getenv("CHAHLIE_BACKEND", "ollama-cloud")
 
 # Ollama Cloud Configuration (https://ollama.com/search?c=cloud)
@@ -62,6 +62,20 @@ OLLAMA_LOCAL_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_LOCAL_MODEL = os.getenv(
     "OLLAMA_LOCAL_MODEL",
     _legacy_ollama_model or "qwen3:8b",
+)
+
+# OpenAI-compatible proxy (llama.cpp, LiteLLM, or `python -m chahlie.llama_proxy`)
+OPENAI_COMPATIBLE_URL = os.getenv(
+    "OPENAI_COMPATIBLE_URL",
+    os.getenv("LLAMA_PROXY_URL", "http://127.0.0.1:11435/v1"),
+).rstrip("/")
+OPENAI_COMPATIBLE_API_KEY = os.getenv(
+    "OPENAI_COMPATIBLE_API_KEY",
+    os.getenv("LLAMA_PROXY_API_KEY", ""),
+).strip()
+OPENAI_COMPATIBLE_MODEL = os.getenv(
+    "OPENAI_COMPATIBLE_MODEL",
+    os.getenv("LLAMA_PROXY_MODEL", _legacy_ollama_model or "qwen3:8b"),
 )
 
 # Anthropic Configuration (legacy)
@@ -107,6 +121,7 @@ COST_RATES = {
     # Ollama Cloud is free at time of writing; show 0.0 by default.
     "ollama-cloud": {"input": 0.0, "output": 0.0},
     "ollama-local": {"input": 0.0, "output": 0.0},
+    "openai-compatible": {"input": 0.0, "output": 0.0},
     # Anthropic Sonnet 4 public pricing (per million tokens, USD):
     "anthropic":   {"input": 3.0, "output": 15.0},
 }
