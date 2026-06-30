@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chahlie — The Boston Coding Agent</title>
+  <meta name="description" content="Chahlie is your wicked smart coding buddy — terminal agent with Boston soul. Steam Deck edition, Ollama Cloud, Cursor Boston." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy: #0c2340;
+      --navy-deep: #071525;
+      --green: #007a33;
+      --green-bright: #008348;
+      --gold: #ffb81c;
+      --red: #bd3039;
+      --field: #0d1f12;
+      --text: #fafafa;
+      --muted: #9ca3af;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Source Sans 3", system-ui, sans-serif;
+      background: var(--navy-deep);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    .skyline {
+      background:
+        linear-gradient(180deg, #050f1a 0%, var(--navy-deep) 40%, var(--field) 100%);
+      border-bottom: 4px solid var(--gold);
+      padding: 2rem 1.5rem 3rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .skyline::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 48px,
+        rgba(255, 184, 28, 0.04) 48px,
+        rgba(255, 184, 28, 0.04) 50px
+      );
+      pointer-events: none;
+    }
+
+    .badge {
+      display: inline-block;
+      font-family: "Bebas Neue", sans-serif;
+      letter-spacing: 0.12em;
+      font-size: 0.95rem;
+      color: var(--navy-deep);
+      background: var(--gold);
+      padding: 0.25rem 0.9rem;
+      border-radius: 2px;
+      margin-bottom: 1rem;
+    }
+
+    h1 {
+      font-family: "Bebas Neue", sans-serif;
+      font-size: clamp(3rem, 10vw, 5.5rem);
+      letter-spacing: 0.04em;
+      color: var(--gold);
+      text-shadow: 0 4px 0 var(--navy), 0 0 40px rgba(0, 122, 51, 0.35);
+      line-height: 0.95;
+    }
+
+    .tagline {
+      font-size: 1.2rem;
+      color: var(--muted);
+      max-width: 36rem;
+      margin: 1rem auto 0;
+    }
+
+    .banner {
+      max-width: 720px;
+      width: 100%;
+      margin: 2rem auto 0;
+      border: 3px solid var(--red);
+      border-radius: 8px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+    }
+
+    .mascot-row {
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      margin-top: 2rem;
+      font-size: 3.5rem;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+    }
+
+    main {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 4rem;
+    }
+
+    section {
+      background: var(--navy);
+      border: 1px solid rgba(255, 184, 28, 0.25);
+      border-radius: 10px;
+      padding: 1.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    section h2 {
+      font-family: "Bebas Neue", sans-serif;
+      font-size: 1.75rem;
+      letter-spacing: 0.06em;
+      color: var(--gold);
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    a.btn {
+      display: inline-block;
+      text-decoration: none;
+      font-weight: 700;
+      padding: 0.75rem 1.25rem;
+      border-radius: 6px;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    a.btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    }
+
+    .btn-primary {
+      background: var(--green);
+      color: white;
+    }
+
+    .btn-gold {
+      background: var(--gold);
+      color: var(--navy-deep);
+    }
+
+    .btn-outline {
+      border: 2px solid var(--gold);
+      color: var(--gold);
+    }
+
+    code, pre {
+      font-family: ui-monospace, "Cascadia Code", monospace;
+      font-size: 0.9rem;
+    }
+
+    pre {
+      background: var(--navy-deep);
+      border: 1px solid var(--green);
+      border-radius: 6px;
+      padding: 1rem;
+      overflow-x: auto;
+      margin-top: 0.75rem;
+    }
+
+    ul { padding-left: 1.25rem; margin-top: 0.5rem; }
+    li { margin-bottom: 0.35rem; }
+
+    .note {
+      background: rgba(0, 122, 51, 0.15);
+      border-left: 4px solid var(--green-bright);
+      padding: 0.75rem 1rem;
+      margin-top: 1rem;
+      font-size: 0.95rem;
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem 1rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+
+    footer a { color: var(--gold); }
+  </style>
+</head>
+<body>
+  <header class="skyline">
+    <span class="badge">CURSOR BOSTON ⚾ OFFICIAL</span>
+    <h1>CHAHLIE</h1>
+    <p class="tagline">Your wicked smart coding buddy — big hat energy, Fenway green, terminal-native.</p>
+    <div class="mascot-row" aria-hidden="true">
+      <span title="Chahlie">🧢</span>
+      <span title="Baseball">⚾</span>
+      <span title="Green Monster">🟢</span>
+    </div>
+    <img class="banner" src="assets/chahlie-banner.png" alt="Chahlie — Your Wicked Smart Coding Assistant" width="720" height="auto" />
+  </header>
+
+  <main>
+    <section id="deck">
+      <h2>🎮 Steam Deck (recommended)</h2>
+      <p>Tauri white-screen on Deck? Skip it. Use the <strong>terminal Deck build</strong> — it works, supports Ollama Cloud, and now has a big gold <strong>TYPE HERE</strong> box at the bottom.</p>
+      <div class="btn-row">
+        <a class="btn btn-primary" href="https://github.com/AaronGrace978/Chahlie/releases/latest">Download latest release</a>
+        <a class="btn btn-gold" href="https://ollama.com/settings/keys">Get free Ollama API key</a>
+      </div>
+      <pre>cd ~/Downloads
+curl -L -O https://github.com/AaronGrace978/Chahlie/releases/download/v2.5.12/chahlie-deck-2.5.12-linux-x86_64.tar.gz
+tar -xzf chahlie-deck-2.5.12-linux-x86_64.tar.gz
+cd chahlie-deck-2.5.12-linux
+chmod +x START-CHAHLIE.sh
+./START-CHAHLIE.sh</pre>
+      <div class="note">
+        <strong>Tip:</strong> Double-click <code>Start Chahlie.desktop</code> — not the <code>.sh</code> file (Kate opens that). Gold box at the bottom = where you type. Press <strong>F7</strong> if the keyboard won't focus.
+      </div>
+    </section>
+
+    <section id="features">
+      <h2>⚾ What you get</h2>
+      <ul>
+        <li>Full agent — read/write files, run commands, git tools</li>
+        <li>Boston personality (obviously)</li>
+        <li>Ollama Cloud — paste key once, no local GPU required</li>
+        <li>Voice on Deck — F4 talk, F5 TTS</li>
+        <li>Memory + self-improvement across sessions</li>
+        <li>Gamepad-friendly approval modals</li>
+      </ul>
+    </section>
+
+    <section id="dev">
+      <h2>💻 Developer install</h2>
+      <pre>git clone https://github.com/AaronGrace978/Chahlie.git
+cd Chahlie
+pip install -r requirements.txt -r requirements-deck.txt
+cp .env.deck.example .env
+python -m chahlie --deck</pre>
+      <div class="btn-row">
+        <a class="btn btn-outline" href="https://github.com/AaronGrace978/Chahlie">GitHub repo</a>
+        <a class="btn btn-outline" href="https://cursorboston.com">Cursor Boston</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Made with love by <a href="https://cursorboston.com">Cursor Boston</a> · MIT License</p>
+    <p><a href="https://github.com/AaronGrace978/Chahlie">github.com/AaronGrace978/Chahlie</a></p>
+  </footer>
+</body>
+</html>

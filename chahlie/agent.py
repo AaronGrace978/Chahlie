@@ -44,6 +44,7 @@ from .config import (
     PERSISTENT_VECTOR_STORE,
     TOT_PLANNING, TOT_MIN_TASK_CHARS, TOT_CANDIDATES, TOT_MODEL,
     FALLBACK_MODELS,
+    DECK_MODE, DECK_MAX_RETRIES, DECK_SOCIAL_LOCAL_CHARS,
 )
 import time
 import threading
@@ -859,11 +860,14 @@ class ChahlieAgent:
     def _should_answer_social_locally(self, user_message: str) -> bool:
         """Return True for tiny banter / junk that does not need a model call."""
         text = (user_message or "").strip()
-        if not text or len(text) > 40:
+        local_cap = DECK_SOCIAL_LOCAL_CHARS if DECK_MODE else 40
+        if not text or len(text) > local_cap:
             return False
         if self._is_junk_input(text):
             return True
         if self._is_social_turn(text):
+            if DECK_MODE:
+                return True
             lowered = text.lower()
             return any((
                 _HEART_TEXT.search(text),
@@ -1107,13 +1111,22 @@ class ChahlieAgent:
         *,
         model: Optional[str] = None,
         tools: Optional[list[dict]] = None,
+        max_tokens: Optional[int] = None,
     ) -> Generator[dict, None, None]:
         """Yields incremental chunks when streaming, or a single chunk otherwise."""
         tools = self._ollama_tools() if tools is None else tools
         use_model = model or self.model
+        chat_kwargs: dict = {
+            "model": use_model,
+            "messages": messages,
+            "tools": tools,
+        }
+        if max_tokens is not None:
+            chat_kwargs["options"] = {"num_predict": max_tokens}
         if not stream:
             resp = self.client.chat(
-                model=use_model, messages=messages, tools=tools, stream=False,
+                **chat_kwargs,
+                stream=False,
             )
             yield {
                 "role": resp.message.role,
@@ -1129,7 +1142,8 @@ class ChahlieAgent:
         accumulated = ""
         final_tool_calls: list[dict] = []
         for chunk in self.client.chat(
-            model=use_model, messages=messages, tools=tools, stream=True,
+            **chat_kwargs,
+            stream=True,
         ):
             delta_text = ""
             msg = getattr(chunk, "message", None)
@@ -1198,9 +1212,10 @@ class ChahlieAgent:
         self.current_task = user_message[:200]
         self.task_start_time = datetime.now()
 
-        use_stream = STREAMING and not social_mode
+        use_stream = STREAMING
         routed_model = self._select_model(user_message)
         ollama_tools = [] if social_mode else None
+        ollama_max_tokens = SOCIAL_MAX_TOKENS if social_mode else None
 
         # Tree-of-Thoughts planning (opt-in). Runs BEFORE the main tool
         # loop so the planned approach can steer every subsequent tool
@@ -1249,7 +1264,7 @@ class ChahlieAgent:
             # are exhausted with a transient error AND we haven't started
             # streaming text yet, we advance to the next model in
             # `model_chain` and start fresh.
-            max_attempts = 3
+            max_attempts = DECK_MAX_RETRIES if DECK_MODE else 3
             backoff = 1.5
             active_model = model_chain[current_model_idx]
             for attempt in range(1, max_attempts + 1):
@@ -1276,7 +1291,11 @@ class ChahlieAgent:
                 dedup_active = bool(dedup_target)
                 try:
                     for chunk in self._call_ollama(
-                        messages, stream=use_stream, model=active_model, tools=ollama_tools,
+                        messages,
+                        stream=use_stream,
+                        model=active_model,
+                        tools=ollama_tools,
+                        max_tokens=ollama_max_tokens,
                     ):
                         heartbeat.tickle()  # first byte -> stop the heartbeat
                         if chunk.get("stream_delta"):

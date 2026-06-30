@@ -20,6 +20,7 @@
 **Cursor Boston Ambassador: Roger Hunt** | **CMO: Aaron Grace**
 
 [![Cursor Boston](https://img.shields.io/badge/Cursor%20Boston-Website-cyan.svg)](https://cursorboston.com)
+[![Chahlie Site](https://img.shields.io/badge/Website-GitHub%20Pages-green.svg)](https://aarongrace978.github.io/Chahlie/)
 [![Follow on X](https://img.shields.io/badge/Follow-@CursorBoston-black.svg)](https://x.com/CursorBoston)
 [![Download Cursor](https://img.shields.io/badge/Download-Cursor%20IDE-blue.svg)](https://cursor.com/downloads)
 

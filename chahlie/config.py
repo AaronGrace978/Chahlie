@@ -83,9 +83,11 @@ STREAMING = os.getenv("CHAHLIE_STREAMING", "true").lower() in ("1", "true", "yes
 # Approximate token budget before older history gets summarized. Rough heuristic:
 # ~4 chars per token. When total history chars exceed COMPACT_THRESHOLD_CHARS,
 # oldest turns are summarized by a cheap LLM call.
-COMPACT_THRESHOLD_CHARS = int(os.getenv("CHAHLIE_COMPACT_THRESHOLD_CHARS", "24000"))
+_COMPACT_DEFAULT = "16000" if os.getenv("CHAHLIE_DECK_MODE", "").lower() in ("1", "true", "yes") else "24000"
+_COMPACT_PRESERVE_DEFAULT = "4" if os.getenv("CHAHLIE_DECK_MODE", "").lower() in ("1", "true", "yes") else "6"
+COMPACT_THRESHOLD_CHARS = int(os.getenv("CHAHLIE_COMPACT_THRESHOLD_CHARS", _COMPACT_DEFAULT))
 # How many most-recent turns to preserve verbatim during compaction.
-COMPACT_PRESERVE_RECENT = int(os.getenv("CHAHLIE_COMPACT_PRESERVE_RECENT", "6"))
+COMPACT_PRESERVE_RECENT = int(os.getenv("CHAHLIE_COMPACT_PRESERVE_RECENT", _COMPACT_PRESERVE_DEFAULT))
 
 # --- LLM-based reflection ---
 # When True, certain reflections upgrade from rule-based to LLM-generated
@@ -131,7 +133,8 @@ SOCIAL_MAX_TOKENS = int(os.getenv("CHAHLIE_SOCIAL_MAX_TOKENS", "160"))
 # Full tool output goes into history for exactly ONE follow-up call (so the
 # LLM can reason on it), then gets clamped to this many chars so it stops
 # inflating every subsequent turn. 0 disables trimming.
-HISTORY_TOOL_CHAR_CAP = int(os.getenv("CHAHLIE_HISTORY_TOOL_CHAR_CAP", "1200"))
+_HISTORY_TOOL_DEFAULT = "800" if os.getenv("CHAHLIE_DECK_MODE", "").lower() in ("1", "true", "yes") else "1200"
+HISTORY_TOOL_CHAR_CAP = int(os.getenv("CHAHLIE_HISTORY_TOOL_CHAR_CAP", _HISTORY_TOOL_DEFAULT))
 
 # --- Debug / perf visibility ---
 DEBUG_TIMING = os.getenv("CHAHLIE_DEBUG_TIMING", "false").lower() in ("1", "true", "yes")
@@ -142,7 +145,8 @@ HEARTBEAT_SECONDS = int(os.getenv("CHAHLIE_HEARTBEAT_SECONDS", "6"))
 # HTTP request timeout for Ollama Cloud / local Ollama calls. Keeps us from
 # hanging 30-60s on a wobbly cloud; instead we bail fast and our retry loop
 # can handle the hiccup. If you have a slow local model, bump this.
-OLLAMA_REQUEST_TIMEOUT = float(os.getenv("CHAHLIE_OLLAMA_TIMEOUT", "25"))
+_OLLAMA_TIMEOUT_DEFAULT = "18" if os.getenv("CHAHLIE_DECK_MODE", "").lower() in ("1", "true", "yes") else "25"
+OLLAMA_REQUEST_TIMEOUT = float(os.getenv("CHAHLIE_OLLAMA_TIMEOUT", _OLLAMA_TIMEOUT_DEFAULT))
 
 # --- Tool call dedupe ---
 # Cache read-only tool calls within a single agent turn so repeated calls
@@ -199,6 +203,12 @@ THEME = {
 # --- Steam Deck / voice ---
 # Deck UI: python -m chahlie --deck
 DECK_MODE = os.getenv("CHAHLIE_DECK_MODE", "false").lower() in ("1", "true", "yes")
+
+# Deck perf: fewer retries on flaky Wi‑Fi so hiccups fail fast to fallback/local reply.
+DECK_MAX_RETRIES = int(os.getenv("CHAHLIE_DECK_MAX_RETRIES", "2"))
+
+# Deck social: answer more banter locally (no cloud round-trip).
+DECK_SOCIAL_LOCAL_CHARS = int(os.getenv("CHAHLIE_DECK_SOCIAL_LOCAL_CHARS", "80"))
 VOICE_ENABLED = os.getenv("CHAHLIE_VOICE", "true").lower() in ("1", "true", "yes")
 VOICE_TTS_ENABLED = os.getenv("CHAHLIE_VOICE_TTS", "true").lower() in ("1", "true", "yes")
 VOICE_LANGUAGE = os.getenv("CHAHLIE_VOICE_LANGUAGE", "en-US")
