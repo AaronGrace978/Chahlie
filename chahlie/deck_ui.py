@@ -516,7 +516,8 @@ if TEXTUAL_AVAILABLE:
                     for w in self.agent.plugin_warnings:
                         self._log_system(f"[yellow]plugin: {w}[/yellow]")
             self._focus_input()
-            self.set_timer(0.5, self._focus_input, once=True)
+            # set_timer is already one-shot; do not pass once= (not a valid arg)
+            self.set_timer(0.5, self._focus_input)
 
         def _input(self) -> Input:
             return self.query_one("#user-input", Input)

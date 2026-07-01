@@ -2,6 +2,11 @@
 
 All notable changes to Chahlie will be documented in this file.
 
+## [2.7.2] "Green Monster Fix II" - 2026-06-30
+
+### Fixed
+- **Deck UI crash on launch** — removed invalid `once=True` from `set_timer()` (Textual API never supported that kwarg; caused TypeError + segfault on boot)
+
 ## [2.7.1] "Green Monster Fix" - 2026-06-30
 
 ### Fixed
