@@ -2,6 +2,11 @@
 
 All notable changes to Chahlie will be documented in this file.
 
+## [2.7.1] "Green Monster Fix" - 2026-06-30
+
+### Fixed
+- **Steam Deck install crash** (`No module named chahlie`) — launcher now verifies the install from `$HOME` (the real launch directory), not the extracted tarball folder. Also reinstalls on version upgrade.
+
 ## [2.7.0] "Green Monster" - 2026-06-30
 
 ### Added

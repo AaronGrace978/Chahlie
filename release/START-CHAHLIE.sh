@@ -30,6 +30,14 @@ VENV_DIR="$INSTALL_DIR/venv"
 ENV_FILE="$INSTALL_DIR/.env"
 MARKER="$INSTALL_DIR/.chahlie-ready"
 PYTHON=""
+WORK_DIR="${CHAHLIE_WORKDIR:-$HOME}"
+
+read_version() {
+    grep -m1 '__version__' "$ROOT/chahlie/__init__.py" 2>/dev/null \
+        | sed -E 's/.*"([^"]+)".*/\1/' || echo "unknown"
+}
+
+CURRENT_VERSION="$(read_version)"
 
 pick_python() {
     if [[ -x "$VENV_DIR/bin/python" ]]; then
@@ -43,46 +51,69 @@ pick_python() {
     die "python3 not found. You're in Desktop Mode, right?"
 }
 
+# Test the REAL launch environment: from $HOME, using -m chahlie (not a local ./chahlie folder).
+chahlie_works() {
+    pick_python
+    (cd "$WORK_DIR" && "$PYTHON" -m chahlie --version &>/dev/null)
+}
+
+needs_install() {
+    if [[ ! -f "$MARKER" ]]; then
+        return 0
+    fi
+    # Reinstall when the tarball version changes
+    local installed_ver
+    installed_ver="$(head -1 "$MARKER" 2>/dev/null || true)"
+    if [[ "$installed_ver" != "$CURRENT_VERSION" ]]; then
+        echo "  → Upgrading $installed_ver → $CURRENT_VERSION..."
+        return 0
+    fi
+    # Reinstall when the editable install is broken (common after moving the folder)
+    if ! chahlie_works; then
+        return 0
+    fi
+    return 1
+}
+
 install_deps() {
     echo ""
-    echo "  ⚾ Chahlie — first-time setup"
-    echo "  ============================="
-    echo "  Folder: $ROOT"
+    echo "  ⚾ Chahlie — setup"
+    echo "  =================="
+    echo "  Folder:  $ROOT"
+    echo "  Version: $CURRENT_VERSION"
     echo ""
 
     pick_python
 
-    # --- Try virtualenv (best option) ---
-    if [[ ! -f "$MARKER" ]]; then
-        echo "  → Setting up (needs internet, ~1-2 min)..."
-        echo ""
+    echo "  → Setting up Python environment (needs internet, ~1-2 min)..."
+    echo ""
 
-        if ! "$PYTHON" -m venv "$VENV_DIR" 2>/dev/null; then
-            echo "  (venv default failed, trying with system packages...)"
-            "$PYTHON" -m venv --system-site-packages "$VENV_DIR" 2>/dev/null || true
-        fi
+    if ! "$PYTHON" -m venv "$VENV_DIR" 2>/dev/null; then
+        echo "  (venv default failed, trying with system packages...)"
+        "$PYTHON" -m venv --system-site-packages "$VENV_DIR" 2>/dev/null || true
+    fi
 
-        if [[ -x "$VENV_DIR/bin/python" ]]; then
-            PYTHON="$VENV_DIR/bin/python"
-            echo "  → Installing into: $VENV_DIR"
-            "$VENV_DIR/bin/pip" install --upgrade pip wheel setuptools || true
-            "$VENV_DIR/bin/pip" install -e "$ROOT" || die "pip install failed. Check internet connection."
-            "$VENV_DIR/bin/pip" install -r "$ROOT/requirements-deck.txt" || die "Could not install dependencies."
-        else
-            echo "  → Using user install (no venv)..."
-            "$PYTHON" -m pip install --user --upgrade pip wheel setuptools 2>/dev/null || \
-                "$PYTHON" -m ensurepip --upgrade 2>/dev/null || true
-            "$PYTHON" -m pip install --user -e "$ROOT" --break-system-packages 2>/dev/null || \
-                "$PYTHON" -m pip install --user -e "$ROOT" || die "pip install failed."
-            "$PYTHON" -m pip install --user -r "$ROOT/requirements-deck.txt" --break-system-packages 2>/dev/null || \
-                "$PYTHON" -m pip install --user -r "$ROOT/requirements-deck.txt" || die "Could not install dependencies."
-        fi
+    if [[ -x "$VENV_DIR/bin/python" ]]; then
+        PYTHON="$VENV_DIR/bin/python"
+        echo "  → Installing into: $VENV_DIR"
+        "$VENV_DIR/bin/pip" install --upgrade pip wheel setuptools || true
+        "$VENV_DIR/bin/pip" install -e "$ROOT" || die "pip install failed. Check internet connection."
+        "$VENV_DIR/bin/pip" install -r "$ROOT/requirements-deck.txt" || die "Could not install dependencies."
+    else
+        echo "  → Using user install (no venv)..."
+        "$PYTHON" -m pip install --user --upgrade pip wheel setuptools 2>/dev/null || \
+            "$PYTHON" -m ensurepip --upgrade 2>/dev/null || true
+        "$PYTHON" -m pip install --user -e "$ROOT" --break-system-packages 2>/dev/null || \
+            "$PYTHON" -m pip install --user -e "$ROOT" || die "pip install failed."
+        "$PYTHON" -m pip install --user -r "$ROOT/requirements-deck.txt" --break-system-packages 2>/dev/null || \
+            "$PYTHON" -m pip install --user -r "$ROOT/requirements-deck.txt" || die "Could not install dependencies."
+    fi
 
-        mkdir -p "$INSTALL_DIR"
-        [[ -f "$ENV_FILE" ]] || cp "$ROOT/.env.deck.example" "$ENV_FILE"
+    mkdir -p "$INSTALL_DIR"
+    [[ -f "$ENV_FILE" ]] || cp "$ROOT/.env.deck.example" "$ENV_FILE"
 
-        # Desktop shortcut with correct path
-        cat > "$HOME/Desktop/Start Chahlie.desktop" << EOF
+    # Desktop shortcut with correct path
+    cat > "$HOME/Desktop/Start Chahlie.desktop" << EOF
 [Desktop Entry]
 Version=1.0
 Type=Application
@@ -92,30 +123,32 @@ Icon=utilities-terminal
 Terminal=true
 Categories=Game;
 EOF
-        chmod +x "$HOME/Desktop/Start Chahlie.desktop" 2>/dev/null || true
+    chmod +x "$HOME/Desktop/Start Chahlie.desktop" 2>/dev/null || true
 
-        date > "$MARKER"
-        echo ""
-        echo "  ✓ Setup done!"
-        echo ""
-    fi
+    echo "$CURRENT_VERSION" > "$MARKER"
+    echo ""
+    echo "  ✓ Setup done!"
+    echo ""
 }
 
 verify() {
     pick_python
-    echo "  → Checking install..."
-    if ! "$PYTHON" -c "import chahlie; import textual" 2>/dev/null; then
+    echo "  → Checking install (from $WORK_DIR)..."
+    if ! chahlie_works; then
         echo "  Install incomplete — retrying..."
         rm -f "$MARKER"
         install_deps
-        "$PYTHON" -c "import chahlie; import textual" 2>/dev/null || \
-            die "Still broken. Copy ALL the red text above and send it for help."
+        if ! chahlie_works; then
+            die "Still broken after reinstall. Try: rm -rf $INSTALL_DIR/venv $MARKER"
+        fi
     fi
     echo "  ✓ Ready. Opening UI..."
     echo ""
 }
 
-install_deps
+if needs_install; then
+    install_deps
+fi
 verify
 
 export CHAHLIE_ENV_FILE="$ENV_FILE"
@@ -126,11 +159,9 @@ if [[ -f "$ENV_FILE" ]]; then
     set +a
 fi
 
-# Work from the user's HOME by default — not the Chahlie install folder.
-# This is critical: list_directory(".") and run_command need to see the Deck, not our own package files.
 export CHAHLIE_DECK_MODE=true
-export CHAHLIE_WORKDIR="${CHAHLIE_WORKDIR:-$HOME}"
-cd "$CHAHLIE_WORKDIR"
+export CHAHLIE_WORKDIR="$WORK_DIR"
+cd "$WORK_DIR"
 if "$PYTHON" -m chahlie --deck "$@"; then
     exit 0
 else

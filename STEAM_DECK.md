@@ -124,7 +124,7 @@ bash scripts/chahlie-deck.sh
 | Can't type / keyboard dead | Tap the input bar or press **F7**. Toolbar buttons steal focus — we refocus after taps. In Gaming Mode use Desktop Mode keyboard or **F4 Talk** |
 | Chahlie won't scan/organize my files | Make sure `CHAHLIE_WORKDIR=/home/deck` is in `~/.local/share/chahlie/.env`. Re-run `START-CHAHLIE.sh` from a fresh release — older builds started in the Chahlie install folder by mistake |
 | Says "I'm only a coding assistant" | Update to v2.7.0+ — Deck mode includes personal-assistant + native Deck tools. Try: *"launch Steam"*, *"check battery"*, *"set volume to 40"* |
-| Ollama Cloud fails | Type `/key` to fix API key; try `CHAHLIE_FALLBACK_MODELS` in `.env`; see https://ollama.com/status |
+| `No module named chahlie` after launch | Old launcher bug (v2.7.0). Run: `~/.local/share/chahlie/venv/bin/pip install -e ~/Downloads/chahlie-deck-*-linux` then retry. Or download **v2.7.1+** which fixes this |
 | Want to use a friend's GPU | Run `python -m chahlie.llama_proxy` on their machine; set `CHAHLIE_BACKEND=openai-compatible` and `OPENAI_COMPATIBLE_URL` on your Deck |
 
 ## Deck native commands (v2.7+)
