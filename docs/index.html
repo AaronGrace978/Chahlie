@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Chahlie — The Boston Coding Agent</title>
-  <meta name="description" content="Chahlie is your wicked smart coding buddy — terminal agent with Boston soul. Steam Deck personal assistant, Ollama Cloud, Llama proxy support." />
+  <meta name="description" content="Chahlie is your wicked smart coding buddy — terminal agent with Boston soul. Steam Deck personal assistant, polished 1280×800 UI, Ollama Cloud, Llama proxy." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
@@ -79,7 +79,7 @@
     .tagline {
       font-size: 1.2rem;
       color: var(--muted);
-      max-width: 40rem;
+      max-width: 42rem;
       margin: 1rem auto 0;
     }
 
@@ -188,6 +188,14 @@
       font-size: 0.95rem;
     }
 
+    .warn {
+      background: rgba(189, 48, 57, 0.15);
+      border-left: 4px solid var(--red);
+      padding: 0.75rem 1rem;
+      margin-top: 1rem;
+      font-size: 0.95rem;
+    }
+
     footer {
       text-align: center;
       padding: 2rem 1rem;
@@ -203,22 +211,23 @@
   <header class="skyline">
     <span class="badge">CURSOR BOSTON ⚾ v2.7.3 FENWAY LOUNGE</span>
     <h1>CHAHLIE</h1>
-    <p class="tagline">Your wicked smart coding buddy — and now a full Steam Deck personal assistant. Big hat energy, Fenway green, terminal-native.</p>
+    <p class="tagline">Your wicked smart coding buddy — and a full Steam Deck personal assistant. Polished terminal UI, Fenway green, Boston soul.</p>
     <div class="mascot-row" aria-hidden="true">
       <span title="Chahlie">🧢</span>
       <span title="Baseball">⚾</span>
       <span title="Green Monster">🟢</span>
     </div>
-    <img class="banner" src="assets/chahlie-banner.svg" alt="Chahlie — Your Wicked Smart Coding Assistant" width="720" height="200" />
+    <img class="banner" src="assets/chahlie-banner.svg" alt="Chahlie — Your Wicked Smart Deck Assistant" width="720" height="200" />
   </header>
 
   <main>
     <section id="deck">
       <h2>🎮 Steam Deck (recommended)</h2>
-      <p>Chahlie isn't just a coding bot on Deck anymore — tell him to <strong>launch games</strong>, <strong>check battery</strong>, <strong>set volume</strong>, <strong>organize Downloads</strong>, or <strong>run any safe shell command</strong>. He'll use his tools and get it done.</p>
+      <p>Chahlie runs your Deck — <strong>launch games</strong>, <strong>check battery</strong>, <strong>set volume</strong>, <strong>organize Downloads</strong>, or <strong>run shell commands</strong>. The v2.7.3 UI is tuned for the Deck's 1280×800 screen with a big chat area and touch-friendly buttons.</p>
       <div class="btn-row">
-        <a class="btn btn-primary" href="https://github.com/AaronGrace978/Chahlie/releases/latest">Download latest release</a>
+        <a class="btn btn-primary" href="https://github.com/AaronGrace978/Chahlie/releases/download/v2.7.3/chahlie-deck-2.7.3-linux-x86_64.tar.gz">Download v2.7.3 Deck build</a>
         <a class="btn btn-gold" href="https://ollama.com/settings/keys">Get free Ollama API key</a>
+        <a class="btn btn-outline" href="https://github.com/AaronGrace978/Chahlie/releases/latest">All releases</a>
       </div>
       <pre>cd ~/Downloads
 curl -L -O https://github.com/AaronGrace978/Chahlie/releases/download/v2.7.3/chahlie-deck-2.7.3-linux-x86_64.tar.gz
@@ -227,8 +236,22 @@ cd chahlie-deck-2.7.3-linux
 chmod +x START-CHAHLIE.sh
 ./START-CHAHLIE.sh</pre>
       <div class="note">
-        <strong>Tip:</strong> Double-click <code>Start Chahlie.desktop</code> — not the <code>.sh</code> file (Kate opens that). Gold box at the bottom = where you type. Press <strong>F7</strong> if the keyboard won't focus. Try: <em>"launch Steam"</em>, <em>"how's my battery"</em>, <em>"set volume to 50"</em>.
+        <strong>Launch tip:</strong> Double-click <code>Start Chahlie.desktop</code> — not the <code>.sh</code> file (Kate opens that). Gold box at the bottom = where you type. Press <strong>F7</strong> if the keyboard won't focus.
       </div>
+      <div class="note">
+        <strong>Try saying:</strong> <em>"launch Steam"</em> · <em>"how's my battery?"</em> · <em>"set volume to 50"</em> · <em>"organize my Downloads"</em>
+      </div>
+    </section>
+
+    <section id="ui">
+      <h2>🖥️ Deck UI (Fenway Lounge)</h2>
+      <ul>
+        <li><strong>Big chat log</strong> — fills the screen, not squished</li>
+        <li><strong>3×2 touch button grid</strong> — Help, Clear, Memory, Talk, TTS, Quit</li>
+        <li><strong>Gold input bar</strong> — docked at the bottom, F7 to focus</li>
+        <li><strong>Voice</strong> — F4 talk, F5 toggle TTS</li>
+        <li><strong>Gamepad approval modals</strong> — A/Y approve, B/N deny dangerous commands</li>
+      </ul>
     </section>
 
     <section id="features">
@@ -238,9 +261,8 @@ chmod +x START-CHAHLIE.sh
         <li>Full agent — read/write files, run commands, git tools, organize your home folder</li>
         <li>Boston personality (obviously)</li>
         <li>Ollama Cloud — paste key once, no local GPU required</li>
-        <li>Voice on Deck — F4 talk, F5 TTS</li>
         <li>Memory + self-improvement across sessions</li>
-        <li>Gamepad-friendly approval modals</li>
+        <li>Llama proxy — share your GPU with friends on LAN</li>
       </ul>
     </section>
 
@@ -263,6 +285,20 @@ OPENAI_COMPATIBLE_MODEL=qwen3:8b</pre>
       </div>
     </section>
 
+    <section id="troubleshoot">
+      <h2>🔧 Troubleshooting</h2>
+      <ul>
+        <li><strong>No module named chahlie</strong> — use v2.7.1+ or run: <code>~/.local/share/chahlie/venv/bin/pip install -e ~/Downloads/chahlie-deck-*-linux</code></li>
+        <li><strong>UI crash on launch</strong> — update to v2.7.2+ (fixed Textual timer bug)</li>
+        <li><strong>Chat errors / NoneType result</strong> — update to v2.7.3</li>
+        <li><strong>Kate opens instead of running</strong> — double-click <code>Start Chahlie.desktop</code></li>
+        <li><strong>Bad API key</strong> — type <code>/key</code> in the chat box</li>
+      </ul>
+      <div class="warn">
+        Need the full guide? See <a href="https://github.com/AaronGrace978/Chahlie/blob/main/STEAM_DECK.md">STEAM_DECK.md</a> on GitHub.
+      </div>
+    </section>
+
     <section id="dev">
       <h2>💻 Developer install</h2>
       <pre>git clone https://github.com/AaronGrace978/Chahlie.git
@@ -280,7 +316,7 @@ python -m chahlie --deck</pre>
   <footer>
     <p>Made with love by <a href="https://cursorboston.com">Cursor Boston</a> · MIT License</p>
     <p><a href="https://github.com/AaronGrace978/Chahlie">github.com/AaronGrace978/Chahlie</a></p>
-    <p><small>Site deploys via GitHub Actions to the <code>gh-pages</code> branch.</small></p>
+    <p><small>v2.7.3 Fenway Lounge · Site deploys via GitHub Actions → <code>gh-pages</code> branch</small></p>
   </footer>
 </body>
 </html>
