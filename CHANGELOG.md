@@ -2,6 +2,14 @@
 
 All notable changes to Chahlie will be documented in this file.
 
+## [2.7.3] "Fenway Lounge" - 2026-06-30
+
+### Fixed
+- **Deck UI crash** — `'NoneType' object has no attribute 'result'` when chatting (incorrect `.result()` on `call_from_thread`)
+
+### Changed
+- **Deck UI layout** — chat fills the screen, 3×2 touch button grid, roomier input bar, proper 1280×800 proportions
+
 ## [2.7.2] "Green Monster Fix II" - 2026-06-30
 
 ### Fixed

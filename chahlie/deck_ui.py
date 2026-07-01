@@ -13,7 +13,7 @@ try:
     from textual import on, work
     from textual.app import App, ComposeResult
     from textual.binding import Binding
-    from textual.containers import Horizontal, Vertical, VerticalScroll
+    from textual.containers import Container, Horizontal, Vertical, VerticalScroll
     from textual.events import Focus
     from textual.screen import ModalScreen
     from textual.widgets import Button, Footer, Header, Input, Label, RichLog, Static
@@ -48,7 +48,6 @@ from .theme import (
     NAVY,
     NAVY_MID,
     RED,
-    TAGLINE,
     TEXT_MUTED,
     TEXT_PRIMARY,
 )
@@ -244,54 +243,125 @@ class DeckStatusBar(Static):
 if TEXTUAL_AVAILABLE:
 
     class ChahlieDeckApp(App):
-        """Steam Deck edition — touch buttons, voice, compact layout."""
+        """Steam Deck edition — touch buttons, voice, 1280×800 layout."""
 
         TITLE = "Chahlie"
-        SUB_TITLE = "Steam Deck Edition"
+        SUB_TITLE = f"v{APP_VERSION} · Steam Deck"
 
         CSS = f"""
         Screen {{
             background: {FENWAY_NIGHT};
+            layout: vertical;
         }}
 
         Header {{
             background: {NAVY};
             color: {TEXT_PRIMARY};
             border-bottom: solid {CELTICS_GREEN};
+            height: 3;
         }}
 
         Footer {{
             background: {NAVY};
+            height: 1;
+            dock: bottom;
         }}
 
         #status-bar {{
-            dock: top;
             height: 1;
-            background: {NAVY};
+            background: {NAVY_MID};
             color: {TEXT_MUTED};
             border-bottom: solid {CELTICS_GREEN};
             padding: 0 1;
+            text-style: bold;
+        }}
+
+        #main-body {{
+            height: 1fr;
+            layout: vertical;
+            padding: 0 1;
+            min-height: 12;
         }}
 
         #hero {{
-            height: 2;
+            height: 3;
+            width: 100%;
             background: {NAVY};
-            border-bottom: solid {BRUINS_GOLD};
-            padding: 0 1;
+            border: solid {BRUINS_GOLD};
             content-align: center middle;
+            padding: 0 1;
+            margin-bottom: 1;
         }}
 
         #hero-title {{
             text-style: bold;
             color: {BRUINS_GOLD};
+            text-align: center;
+            width: 100%;
+        }}
+
+        #chat-log {{
+            height: 1fr;
+            min-height: 16;
+            border: tall {RED};
+            background: {NAVY_MID};
+            padding: 1;
+            margin-bottom: 1;
+            scrollbar-background: {NAVY};
+            scrollbar-color: {GREEN};
         }}
 
         #command-bar {{
             dock: bottom;
             height: auto;
+            max-height: 42%;
             background: {NAVY};
             border-top: thick {BRUINS_GOLD};
-            padding: 0 1 1 1;
+            padding: 1;
+        }}
+
+        #stream-live {{
+            height: auto;
+            max-height: 4;
+            background: {NAVY_MID};
+            border: solid {CELTICS_GREEN};
+            color: {CELTICS_GREEN_BRIGHT};
+            padding: 0 1;
+            margin-bottom: 1;
+        }}
+
+        #stream-live.hidden {{
+            display: none;
+        }}
+
+        #toolbar {{
+            layout: grid;
+            grid-size: 3;
+            grid-gutter: 1 1;
+            height: auto;
+            min-height: 7;
+            margin-bottom: 1;
+            padding: 0;
+        }}
+
+        #toolbar Button {{
+            width: 100%;
+            height: 3;
+            min-width: 0;
+            background: {CELTICS_GREEN};
+            color: white;
+            border: solid {CELTICS_GREEN_BRIGHT};
+        }}
+
+        #toolbar Button:hover {{
+            background: {CELTICS_GREEN_BRIGHT};
+            color: {TEXT_PRIMARY};
+        }}
+
+        #mic-btn.listening {{
+            background: {RED};
+            color: white;
+            border: solid {RED};
         }}
 
         #input-label {{
@@ -300,15 +370,17 @@ if TEXTUAL_AVAILABLE:
             text-style: bold;
             background: {NAVY_MID};
             padding: 0 1;
-            margin-top: 1;
+            margin-bottom: 1;
             border: solid {CELTICS_GREEN};
+            text-align: center;
+            width: 100%;
         }}
 
         #input-row {{
-            height: 5;
+            height: 3;
             padding: 0;
             background: {NAVY_MID};
-            border: solid {BRUINS_GOLD};
+            border: thick {BRUINS_GOLD};
         }}
 
         #input-row:focus-within {{
@@ -318,10 +390,10 @@ if TEXTUAL_AVAILABLE:
 
         #user-input {{
             width: 1fr;
+            height: 3;
             border: none;
             background: #0F2847;
             color: #FFFFFF;
-            min-height: 3;
             padding: 0 1;
         }}
 
@@ -337,59 +409,14 @@ if TEXTUAL_AVAILABLE:
         }}
 
         #input-hint {{
-            width: auto;
+            width: 6;
+            min-width: 6;
             color: {BRUINS_GOLD};
             text-style: bold;
             content-align: center middle;
             padding: 0 1;
-            background: {NAVY_MID};
-        }}
-
-        #stream-live {{
-            height: auto;
-            max-height: 5;
-            background: {NAVY_MID};
-            border: solid {CELTICS_GREEN};
-            color: {CELTICS_GREEN_BRIGHT};
-            padding: 0 1;
-            margin: 0 0 1 0;
-        }}
-
-        #stream-live.hidden {{
-            display: none;
-        }}
-
-        #toolbar {{
-            height: 3;
-            background: {NAVY_MID};
-            border-top: solid {CELTICS_GREEN};
-            padding: 0 1;
-            margin-top: 1;
-        }}
-
-        #toolbar Button {{
-            min-width: 10;
-            margin: 0 1 0 0;
-            background: {CELTICS_GREEN};
-            color: white;
-        }}
-
-        #toolbar Button:hover {{
-            background: {CELTICS_GREEN_BRIGHT};
-            color: {TEXT_PRIMARY};
-        }}
-
-        #mic-btn.listening {{
-            background: {RED};
-            color: white;
-        }}
-
-        #chat-log {{
-            border: solid {RED};
-            margin: 0 1 1 1;
-            padding: 0 1;
-            scrollbar-background: {NAVY};
-            scrollbar-color: {GREEN};
+            background: {NAVY};
+            border-left: solid {CELTICS_GREEN};
         }}
 
         .msg-user {{
@@ -440,21 +467,23 @@ if TEXTUAL_AVAILABLE:
         def compose(self) -> ComposeResult:
             yield Header(show_clock=True)
             yield DeckStatusBar(id="status-bar")
-            yield Label(
-                f"⚾ CHAHLIE v{APP_VERSION} \"{APP_CODENAME}\" — {TAGLINE}",
-                id="hero-title",
-            )
-            yield RichLog(id="chat-log", highlight=True, markup=True, wrap=True)
+            with Vertical(id="main-body"):
+                with Vertical(id="hero"):
+                    yield Static(
+                        f"⚾ CHAHLIE v{APP_VERSION} \"{APP_CODENAME}\" — your Deck kehd",
+                        id="hero-title",
+                    )
+                yield RichLog(id="chat-log", highlight=True, markup=True, wrap=True)
             with Vertical(id="command-bar"):
                 yield Static("", id="stream-live", classes="hidden")
-                with Horizontal(id="toolbar"):
-                    yield Button("Help", id="btn-help", variant="primary")
-                    yield Button("Clear", id="btn-clear")
-                    yield Button("Memory", id="btn-memory")
+                with Container(id="toolbar"):
+                    yield Button("❓ Help", id="btn-help", variant="primary")
+                    yield Button("🗑 Clear", id="btn-clear")
+                    yield Button("🧠 Memory", id="btn-memory")
                     yield Button("🎤 Talk", id="mic-btn")
                     yield Button("🔊 TTS", id="tts-btn")
-                    yield Button("Quit", id="btn-quit", variant="warning")
-                yield Label("▶ TYPE HERE — Enter to send · F7 to focus keyboard", id="input-label")
+                    yield Button("⏻ Quit", id="btn-quit", variant="warning")
+                yield Label("▶ TYPE HERE — tap box or F7 · Enter sends", id="input-label")
                 with Horizontal(id="input-row"):
                     yield Input(
                         placeholder=self._input_placeholder,
@@ -587,6 +616,10 @@ if TEXTUAL_AVAILABLE:
                 f"{self.voice.status_line()} · {tts}"
             )
 
+        def _ui(self, callback, *args, **kwargs) -> None:
+            """Run a UI callback on the main thread from a worker thread."""
+            self.call_from_thread(callback, *args, **kwargs)
+
         def _approval_prompter(self, command: str, reason: str) -> bool:
             """Block the agent thread until the user picks approve/deny."""
             if not self._loop:
@@ -697,40 +730,40 @@ if TEXTUAL_AVAILABLE:
                         if evt.data and evt.data.get("streaming"):
                             if not streaming:
                                 streaming = True
-                                self.call_from_thread(self._stream_start).result()
+                                self._ui(self._stream_start)
                             buffer += evt.content
-                            self.call_from_thread(self._stream_append, evt.content).result()
+                            self._ui(self._stream_append, evt.content)
                             continue
                         if streaming and buffer:
-                            self.call_from_thread(self._stream_finish).result()
+                            self._ui(self._stream_finish)
                             streaming = False
-                            self.call_from_thread(self._log_agent, buffer).result()
+                            self._ui(self._log_agent, buffer)
                             if self._tts_on:
                                 self.voice.speak(buffer)
                             buffer = ""
-                        self.call_from_thread(self._dispatch_agent_event, evt).result()
+                        self._ui(self._dispatch_agent_event, evt)
                     else:
                         if streaming and buffer:
-                            self.call_from_thread(self._stream_finish).result()
+                            self._ui(self._stream_finish)
                             streaming = False
-                            self.call_from_thread(self._log_agent, buffer).result()
+                            self._ui(self._log_agent, buffer)
                             if self._tts_on:
                                 self.voice.speak(buffer)
                             buffer = ""
-                        self.call_from_thread(self._dispatch_agent_event, evt).result()
+                        self._ui(self._dispatch_agent_event, evt)
                 if streaming and buffer:
-                    self.call_from_thread(self._stream_finish).result()
-                    self.call_from_thread(self._log_agent, buffer).result()
+                    self._ui(self._stream_finish)
+                    self._ui(self._log_agent, buffer)
                     if self._tts_on:
                         self.voice.speak(buffer)
             except Exception as exc:
-                self.call_from_thread(self._log_error, str(exc))
+                self._ui(self._log_error, str(exc))
             finally:
-                self.call_from_thread(self._set_processing, False)
+                self._ui(self._set_processing, False)
 
         @work(thread=True)
         def _process_message(self, msg: str) -> None:
-            self.call_from_thread(self._set_processing, True)
+            self._ui(self._set_processing, True)
             self._process_message_worker(msg)
 
         @on(Input.Submitted, "#user-input")
@@ -837,18 +870,18 @@ if TEXTUAL_AVAILABLE:
         @work(thread=True)
         def _start_listen(self) -> None:
             self._listening = True
-            self.call_from_thread(self._set_mic_listening, True)
+            self._ui(self._set_mic_listening, True)
             try:
                 def status(s: str) -> None:
-                    self.call_from_thread(self._log_system, f"🎤 {s}…")
+                    self._ui(self._log_system, f"🎤 {s}…")
 
                 text = self.voice.listen(on_status=status)
-                self.call_from_thread(self._on_voice_result, text)
+                self._ui(self._on_voice_result, text)
             except Exception as exc:
-                self.call_from_thread(self._log_error, str(exc))
+                self._ui(self._log_error, str(exc))
             finally:
                 self._listening = False
-                self.call_from_thread(self._set_mic_listening, False)
+                self._ui(self._set_mic_listening, False)
 
         def _set_mic_listening(self, on: bool) -> None:
             btn = self.query_one("#mic-btn", Button)
